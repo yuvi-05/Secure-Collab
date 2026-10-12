@@ -1,6 +1,7 @@
 import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.extensions import db
+from app.utils.datetime_utils import utc_now
 
 class User(db.Model):
     __tablename__ = "users"
@@ -13,9 +14,9 @@ class User(db.Model):
     avatar_url = db.Column(db.String(512), nullable=True)
     bio = db.Column(db.String(255), nullable=True)
     is_online = db.Column(db.Boolean, default=False)
-    last_seen = db.Column(db.DateTime, default=datetime.datetime.utcnow)
-    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    last_seen = db.Column(db.DateTime, default=utc_now)
+    created_at = db.Column(db.DateTime, default=utc_now)
+    updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
 
     # Relationships
     workspace_memberships = db.relationship("WorkspaceMember", back_populates="user", cascade="all, delete-orphan")

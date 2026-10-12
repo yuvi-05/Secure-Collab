@@ -38,6 +38,8 @@ Secure-Collab is a full-stack, enterprise-grade web application enabling distrib
 ### 4. Real-Time Chat & Threads
 - One-to-one Direct Messages (DMs) and multi-user group DMs.
 - Public and private workspace channels.
+- Real-time unread message counters and notification badges in the sidebar.
+- Message pagination ("Load earlier messages") with cursor-based infinite history navigation.
 - Reply threads with parent-message scoping and live counter badges.
 - Live emoji reactions on messages.
 - Real-time typing indicators and online/offline user presence tracking.
@@ -45,7 +47,7 @@ Secure-Collab is a full-stack, enterprise-grade web application enabling distrib
 - Search messages across the entire workspace.
 
 ### 5. Secure File Management
-- Drag-and-drop file upload into channels, DMs, or the workspace file repository.
+- Interactive drag-and-drop file upload into channels, DMs, or the workspace file repository.
 - Inline preview for images, PDFs, and code/text files.
 - Secure, authorized download endpoints (no unrestricted static file exposure).
 - Unique file UUID storage and workspace directory isolation.
@@ -177,11 +179,11 @@ To test live simultaneous code editing and messaging across two users:
 ## 🧪 Running the Test Suite
 
 ### Backend Tests (pytest)
-Runs 11 automated test suites covering authentication, workspace authorization, message history, reactions, thread replies, secure file uploads/downloads, Yjs CRDT persistence, and AI endpoints:
+Runs 13 automated test suites covering authentication, workspace authorization, private channel permissions, message history, reactions, thread replies, secure file uploads/downloads, Yjs CRDT persistence and unauthorized project access guards, and AI endpoints:
 ```powershell
 cd backend
 $env:PYTHONPATH="."
-.\venv\Scripts\pytest.exe tests -v
+.\venv\Scripts\python.exe -m pytest tests -v
 ```
 
 ### Frontend Tests (Vitest)
@@ -190,6 +192,25 @@ Runs automated component and CRDT integration tests:
 cd frontend
 npm test
 ```
+
+---
+
+## 🗄️ Database Migrations (Flask-Migrate / Alembic)
+
+The application uses Flask-Migrate for tracking database schema changes:
+
+- **Run pending migrations to the latest revision**:
+  ```powershell
+  cd backend
+  $env:PYTHONPATH="."
+  flask db upgrade
+  ```
+- **Generate a new migration after modifying models**:
+  ```powershell
+  $env:SKIP_DB_CREATE="1"
+  $env:PYTHONPATH="."
+  flask db migrate -m "Description of changes"
+  ```
 
 ---
 

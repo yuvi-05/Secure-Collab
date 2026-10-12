@@ -54,7 +54,7 @@ def create_channel(workspace_id):
 @jwt_required()
 @channel_access_required()
 def get_channel(workspace_id, channel_id):
-    channel = Channel.query.get(channel_id)
+    channel = db.session.get(Channel, channel_id)
     return success_response({"channel": channel.to_dict()})
 
 
@@ -62,7 +62,7 @@ def get_channel(workspace_id, channel_id):
 @jwt_required()
 @channel_access_required(admin_only=True)
 def update_channel(workspace_id, channel_id):
-    channel = Channel.query.get(channel_id)
+    channel = db.session.get(Channel, channel_id)
     data = request.get_json() or {}
     
     if "name" in data and data["name"].strip():
@@ -87,7 +87,7 @@ def update_channel(workspace_id, channel_id):
 @jwt_required()
 @channel_access_required(admin_only=True)
 def delete_channel(workspace_id, channel_id):
-    channel = Channel.query.get(channel_id)
+    channel = db.session.get(Channel, channel_id)
     if channel.name == "general":
         return error_response("The default #general channel cannot be deleted", 400)
 
@@ -133,7 +133,7 @@ def add_channel_member(workspace_id, channel_id):
 @channel_access_required()
 def remove_channel_member(workspace_id, channel_id, user_id):
     current_user = get_current_user()
-    channel = Channel.query.get(channel_id)
+    channel = db.session.get(Channel, channel_id)
     if channel.name == "general":
         return error_response("Members cannot be removed from #general channel", 400)
 

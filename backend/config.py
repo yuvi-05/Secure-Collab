@@ -5,8 +5,8 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 
 class Config:
-    SECRET_KEY = os.getenv("SECRET_KEY", "dev-secure-collab-secret-key-2026")
-    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-jwt-super-secret-key-2026")
+    SECRET_KEY = os.getenv("SECRET_KEY", "dev-secure-collab-secret-key-32bytes-long-2026")
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-jwt-super-secret-key-secure-collab-2026-production")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=7)
     
     # Database Configuration - defaults to SQLite for immediate local plug-and-play,

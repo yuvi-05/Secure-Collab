@@ -36,6 +36,7 @@ export const Sidebar = ({
     selectProject,
     viewMode,
     setViewMode,
+    unreadCounts,
   } = useWorkspace();
 
   const { user } = useAuth();
@@ -132,22 +133,30 @@ export const Sidebar = ({
           <div className="space-y-0.5">
             {channels.map((ch) => {
               const isActive = viewMode === 'chat' && currentChannel?.id === ch.id;
+              const unread = unreadCounts?.channels?.[ch.id] || 0;
               return (
                 <button
                   key={ch.id}
                   onClick={() => selectChannel(ch)}
-                  className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${
+                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-colors ${
                     isActive
                       ? 'bg-indigo-600 text-white font-semibold shadow-sm'
                       : 'hover:bg-slate-800/80 text-slate-300 hover:text-slate-100'
                   }`}
                 >
-                  {ch.is_private ? (
-                    <Lock className="w-3.5 h-3.5 shrink-0 opacity-70" />
-                  ) : (
-                    <Hash className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                  <div className="flex items-center gap-2 truncate">
+                    {ch.is_private ? (
+                      <Lock className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                    ) : (
+                      <Hash className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                    )}
+                    <span className="truncate">{ch.name}</span>
+                  </div>
+                  {unread > 0 && !isActive && (
+                    <span className="ml-2 px-1.5 py-0.5 rounded-full bg-indigo-500 text-[10px] font-bold text-white leading-none shrink-0 shadow-sm">
+                      {unread}
+                    </span>
                   )}
-                  <span className="truncate">{ch.name}</span>
                 </button>
               );
             })}
@@ -169,6 +178,7 @@ export const Sidebar = ({
           <div className="space-y-0.5">
             {conversations.map((conv) => {
               const isActive = viewMode === 'chat' && currentConversation?.id === conv.id;
+              const unread = unreadCounts?.conversations?.[conv.id] || 0;
               // Find other member
               const otherMember = conv.members?.find((m) => m.user_id !== user?.id)?.user;
               const isOtherOnline = otherMember ? onlineUsers.get(otherMember.id) : false;
@@ -177,19 +187,26 @@ export const Sidebar = ({
                 <button
                   key={conv.id}
                   onClick={() => selectConversation(conv)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg transition-colors ${
+                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-colors ${
                     isActive
                       ? 'bg-indigo-600 text-white font-semibold shadow-sm'
                       : 'hover:bg-slate-800/80 text-slate-300 hover:text-slate-100'
                   }`}
                 >
-                  <Avatar
-                    name={conv.title || otherMember?.username}
-                    src={otherMember?.avatar_url}
-                    size="xs"
-                    isOnline={isOtherOnline}
-                  />
-                  <span className="truncate">{conv.title || otherMember?.full_name || 'DM'}</span>
+                  <div className="flex items-center gap-2.5 truncate">
+                    <Avatar
+                      name={conv.title || otherMember?.username}
+                      src={otherMember?.avatar_url}
+                      size="xs"
+                      isOnline={isOtherOnline}
+                    />
+                    <span className="truncate">{conv.title || otherMember?.full_name || 'DM'}</span>
+                  </div>
+                  {unread > 0 && !isActive && (
+                    <span className="ml-2 px-1.5 py-0.5 rounded-full bg-indigo-500 text-[10px] font-bold text-white leading-none shrink-0 shadow-sm">
+                      {unread}
+                    </span>
+                  )}
                 </button>
               );
             })}

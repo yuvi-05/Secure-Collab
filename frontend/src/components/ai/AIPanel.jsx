@@ -10,7 +10,6 @@ import {
   Copy,
   ArrowRight,
   GitCompare,
-  Plus,
 } from 'lucide-react';
 import { aiService } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';

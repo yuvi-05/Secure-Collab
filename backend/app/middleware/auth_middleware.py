@@ -1,6 +1,7 @@
 from functools import wraps
 from flask import request
 from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
+from app.extensions import db
 from app.models import User, WorkspaceMember, Channel, ChannelMember, CodingProject, ProjectMember
 from app.utils.response import error_response
 
@@ -10,7 +11,7 @@ def get_current_user():
         user_id = get_jwt_identity()
         if not user_id:
             return None
-        return User.query.get(int(user_id))
+        return db.session.get(User, int(user_id))
     except Exception:
         return None
 
@@ -79,7 +80,7 @@ def channel_access_required(admin_only=False):
             except ValueError:
                 return error_response("Invalid Channel ID", 400)
 
-            channel = Channel.query.get(channel_id)
+            channel = db.session.get(Channel, channel_id)
             if not channel:
                 return error_response("Channel not found", 404)
 
@@ -122,7 +123,7 @@ def project_access_required(require_editor=False):
             if not project_id:
                 return error_response("Project ID is required", 400)
 
-            project = CodingProject.query.get(int(project_id))
+            project = db.session.get(CodingProject, int(project_id))
             if not project:
                 return error_response("Project not found", 404)
 

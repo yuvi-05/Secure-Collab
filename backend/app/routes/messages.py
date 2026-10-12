@@ -79,7 +79,7 @@ def send_message(workspace_id):
             return error_response("You are not part of this conversation", 403)
         room_name = f"conversation_{conversation_id}"
     elif parent_id:
-        parent_msg = Message.query.get(int(parent_id))
+        parent_msg = db.session.get(Message, int(parent_id))
         if not parent_msg or parent_msg.workspace_id != workspace_id:
             return error_response("Parent message not found", 404)
         channel_id = parent_msg.channel_id
@@ -131,6 +131,12 @@ def send_message(workspace_id):
     socketio.emit("message_new", msg_dict, room=room_name)
     if parent_id:
         socketio.emit("thread_reply_new", msg_dict, room=f"channel_{channel_id}" if channel_id else f"conversation_{conversation_id}")
+    elif channel_id:
+        socketio.emit("channel_message_notification", msg_dict, room=f"workspace_{workspace_id}")
+    elif conversation_id and 'conv' in locals() and conv:
+        for cm in conv.members:
+            if cm.user_id != current_user.id:
+                socketio.emit("dm_message_notification", msg_dict, room=f"user_{cm.user_id}")
 
     return success_response({"message": msg_dict}, "Message sent", 201)
 

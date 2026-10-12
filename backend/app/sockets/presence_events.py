@@ -1,6 +1,6 @@
 import datetime
 from flask import request
-from flask_socketio import emit
+from flask_socketio import emit, join_room
 from app.extensions import socketio, db
 from app.models import User
 
@@ -18,10 +18,11 @@ def handle_authenticate_socket(data):
         try:
             uid = int(user_id)
             connected_users[request.sid] = uid
-            user = User.query.get(uid)
+            join_room(f"user_{uid}")
+            user = db.session.get(User, uid)
             if user:
                 user.is_online = True
-                user.last_seen = datetime.datetime.utcnow()
+                user.last_seen = datetime.datetime.now(datetime.timezone.utc)
                 db.session.commit()
                 emit("user_presence_change", {"user_id": uid, "is_online": True}, broadcast=True)
         except Exception:
@@ -34,10 +35,10 @@ def handle_disconnect():
         # Check if user has other active connections
         if user_id not in connected_users.values():
             try:
-                user = User.query.get(user_id)
+                user = db.session.get(User, user_id)
                 if user:
                     user.is_online = False
-                    user.last_seen = datetime.datetime.utcnow()
+                    user.last_seen = datetime.datetime.now(datetime.timezone.utc)
                     db.session.commit()
                     emit("user_presence_change", {"user_id": user_id, "is_online": False}, broadcast=True)
             except Exception:

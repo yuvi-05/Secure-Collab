@@ -2,12 +2,10 @@ import React, { useState } from 'react';
 import {
   Smile,
   MessageSquare,
-  MoreVertical,
   Edit2,
   Trash2,
   Download,
   FileText,
-  Image as ImageIcon,
 } from 'lucide-react';
 import Avatar from '../common/Avatar';
 import EmojiReactionPicker from './EmojiReactionPicker';

@@ -23,6 +23,44 @@ export const WorkspaceProvider = ({ children }) => {
   const [currentProject, setCurrentProject] = useState(null);
   const [viewMode, setViewMode] = useState('chat'); // 'chat' | 'project' | 'files' | 'members'
   const [loading, setLoading] = useState(true);
+  const [unreadCounts, setUnreadCounts] = useState({ channels: {}, conversations: {} });
+
+  // Real-time unread messages tracking across channels and DMs
+  useEffect(() => {
+    const handleChannelNotif = (msg) => {
+      if (!msg?.channel_id) return;
+      if (currentChannel?.id !== msg.channel_id) {
+        setUnreadCounts((prev) => ({
+          ...prev,
+          channels: {
+            ...prev.channels,
+            [msg.channel_id]: (prev.channels[msg.channel_id] || 0) + 1,
+          },
+        }));
+      }
+    };
+
+    const handleDmNotif = (msg) => {
+      if (!msg?.conversation_id) return;
+      if (currentConversation?.id !== msg.conversation_id) {
+        setUnreadCounts((prev) => ({
+          ...prev,
+          conversations: {
+            ...prev.conversations,
+            [msg.conversation_id]: (prev.conversations[msg.conversation_id] || 0) + 1,
+          },
+        }));
+      }
+    };
+
+    socketClient.on('channel_message_notification', handleChannelNotif);
+    socketClient.on('dm_message_notification', handleDmNotif);
+
+    return () => {
+      socketClient.off('channel_message_notification', handleChannelNotif);
+      socketClient.off('dm_message_notification', handleDmNotif);
+    };
+  }, [currentChannel?.id, currentConversation?.id]);
 
   // Load all workspaces on login
   const loadWorkspaces = useCallback(async () => {
@@ -90,6 +128,10 @@ export const WorkspaceProvider = ({ children }) => {
     setCurrentProject(null);
     setViewMode('chat');
     if (channel) {
+      setUnreadCounts((prev) => ({
+        ...prev,
+        channels: { ...prev.channels, [channel.id]: 0 },
+      }));
       socketClient.joinRoom(`channel_${channel.id}`);
     }
   };
@@ -106,6 +148,10 @@ export const WorkspaceProvider = ({ children }) => {
     setCurrentProject(null);
     setViewMode('chat');
     if (conv) {
+      setUnreadCounts((prev) => ({
+        ...prev,
+        conversations: { ...prev.conversations, [conv.id]: 0 },
+      }));
       socketClient.joinRoom(`conversation_${conv.id}`);
     }
   };
@@ -175,6 +221,7 @@ export const WorkspaceProvider = ({ children }) => {
         createChannel,
         createProject,
         setConversations,
+        unreadCounts,
       }}
     >
       {children}

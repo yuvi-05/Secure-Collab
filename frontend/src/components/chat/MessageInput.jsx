@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Send, Paperclip, X, Image as ImageIcon } from 'lucide-react';
+import { Send, Paperclip, X } from 'lucide-react';
 import { fileService } from '../../services/fileService';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -8,6 +8,7 @@ export const MessageInput = ({ workspaceId, onSendMessage, onTypingStart, onTypi
   const [content, setContent] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
@@ -29,8 +30,7 @@ export const MessageInput = ({ workspaceId, onSendMessage, onTypingStart, onTypi
     }
   };
 
-  const handleFileUpload = async (e) => {
-    const files = e.target.files;
+  const processFiles = async (files) => {
     if (!files || files.length === 0) return;
 
     setUploading(true);
@@ -45,6 +45,28 @@ export const MessageInput = ({ workspaceId, onSendMessage, onTypingStart, onTypi
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleFileUpload = (e) => {
+    processFiles(e.target.files);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer?.files?.length > 0) {
+      processFiles(e.dataTransfer.files);
     }
   };
 
@@ -67,7 +89,16 @@ export const MessageInput = ({ workspaceId, onSendMessage, onTypingStart, onTypi
   };
 
   return (
-    <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+    <div
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`p-3 bg-white dark:bg-slate-900 border-t transition-colors ${
+        isDragging
+          ? 'border-indigo-500 bg-indigo-50/10 dark:bg-indigo-950/20'
+          : 'border-slate-200 dark:border-slate-800'
+      }`}
+    >
       {/* Uploaded Attachments Preview Chips */}
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-2">
@@ -93,7 +124,11 @@ export const MessageInput = ({ workspaceId, onSendMessage, onTypingStart, onTypi
       {/* Input Box */}
       <form
         onSubmit={handleSubmit}
-        className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 focus-within:border-indigo-500 transition-colors"
+        className={`flex items-center gap-2 px-3 py-2 rounded-2xl bg-slate-100 dark:bg-slate-800 border transition-colors ${
+          isDragging
+            ? 'border-indigo-500 ring-2 ring-indigo-500/30'
+            : 'border-slate-200 dark:border-slate-700/80 focus-within:border-indigo-500'
+        }`}
       >
         {/* Attachment Upload Button */}
         <button

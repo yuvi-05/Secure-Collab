@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, X, GitCompare } from 'lucide-react';
+import { Check } from 'lucide-react';
 import Modal from '../common/Modal';
 
 export const AIDiffModal = ({ isOpen, onClose, diff, suggestedCode, onApply }) => {

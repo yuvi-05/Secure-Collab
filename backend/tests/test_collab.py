@@ -34,3 +34,23 @@ def test_project_and_yjs_sync(client, auth_headers):
     res_check = client.get(f"/api/workspaces/{ws_id}/projects/{proj_id}/files/{file_id}", headers=auth_headers)
     assert res_check.status_code == 200
     assert "updated collaborative" in res_check.get_json()["data"]["file"]["content"]
+
+def test_unauthorized_project_access(client, auth_headers, second_auth_headers):
+    # User 1 creates workspace and project
+    res_ws = client.post("/api/workspaces", json={"name": "Proprietary Core"}, headers=auth_headers)
+    ws_id = res_ws.get_json()["data"]["workspace"]["id"]
+
+    res_proj = client.post(f"/api/workspaces/{ws_id}/projects", json={
+        "name": "Secret Project",
+        "description": "Internal algorithms"
+    }, headers=auth_headers)
+    assert res_proj.status_code == 201
+    proj_id = res_proj.get_json()["data"]["project"]["id"]
+
+    # User 2 (not a member of the workspace or project) tries to access project -> 403
+    res_unauth = client.get(f"/api/workspaces/{ws_id}/projects/{proj_id}", headers=second_auth_headers)
+    assert res_unauth.status_code == 403
+
+    # User 2 tries to fetch project files -> 403
+    res_unauth_files = client.get(f"/api/workspaces/{ws_id}/projects/{proj_id}/files", headers=second_auth_headers)
+    assert res_unauth_files.status_code == 403

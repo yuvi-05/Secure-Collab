@@ -21,7 +21,7 @@ class YjsService:
     def save_doc_state(file_id: int, yjs_state: str, plaintext_content: str = None, user_id: int = None) -> CollaborativeDocument:
         doc = CollaborativeDocument.query.filter_by(file_id=file_id).first()
         if not doc:
-            pfile = ProjectFile.query.get(file_id)
+            pfile = db.session.get(ProjectFile, file_id)
             if not pfile:
                 raise ValueError("Project file not found")
             doc = CollaborativeDocument(
@@ -34,13 +34,13 @@ class YjsService:
         else:
             doc.yjs_state = yjs_state
             doc.version += 1
-            doc.updated_at = datetime.datetime.utcnow()
+            doc.updated_at = datetime.datetime.now(datetime.timezone.utc)
 
         if plaintext_content is not None:
-            pfile = ProjectFile.query.get(file_id)
+            pfile = db.session.get(ProjectFile, file_id)
             if pfile:
                 pfile.content = plaintext_content
-                pfile.updated_at = datetime.datetime.utcnow()
+                pfile.updated_at = datetime.datetime.now(datetime.timezone.utc)
                 if user_id:
                     pfile.updated_by = user_id
 

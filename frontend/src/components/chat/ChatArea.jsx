@@ -14,6 +14,8 @@ export const ChatArea = ({ workspaceId, channel, conversation }) => {
 
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const [activeThread, setActiveThread] = useState(null);
   const [typingUsers, setTypingUsers] = useState(new Set());
 
@@ -37,6 +39,7 @@ export const ChatArea = ({ workspaceId, channel, conversation }) => {
 
         const res = await messageService.getMessages(workspaceId, params);
         setMessages(res.data.messages || []);
+        setHasMore(Boolean(res.data.has_more));
       } catch (err) {
         showToast('Error loading messages: ' + err.message, 'error');
       } finally {
@@ -46,6 +49,25 @@ export const ChatArea = ({ workspaceId, channel, conversation }) => {
 
     fetchMessages();
   }, [workspaceId, channel?.id, conversation?.id, showToast]);
+
+  const handleLoadOlder = async () => {
+    if (loadingOlder || !hasMore || messages.length === 0) return;
+    try {
+      setLoadingOlder(true);
+      const params = { before_id: messages[0].id };
+      if (channel) params.channel_id = channel.id;
+      if (conversation) params.conversation_id = conversation.id;
+
+      const res = await messageService.getMessages(workspaceId, params);
+      const older = res.data.messages || [];
+      setMessages((prev) => [...older, ...prev]);
+      setHasMore(Boolean(res.data.has_more));
+    } catch (err) {
+      showToast('Could not load older messages: ' + err.message, 'error');
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
 
   // Socket event listeners for real-time delivery
   useEffect(() => {
@@ -171,6 +193,18 @@ export const ChatArea = ({ workspaceId, channel, conversation }) => {
       <div className="flex-1 flex flex-col h-full min-w-0">
         {/* Messages Scroll Area */}
         <div className="flex-1 overflow-y-auto py-4 space-y-1">
+          {hasMore && (
+            <div className="flex justify-center my-2">
+              <button
+                onClick={handleLoadOlder}
+                disabled={loadingOlder}
+                className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-medium text-slate-600 dark:text-slate-300 transition-colors shadow-sm disabled:opacity-50"
+              >
+                {loadingOlder ? 'Loading earlier messages...' : '↑ Load earlier messages'}
+              </button>
+            </div>
+          )}
+
           {loading ? (
             <div className="p-8 text-center text-xs text-slate-400">Loading messages...</div>
           ) : messages.length === 0 ? (

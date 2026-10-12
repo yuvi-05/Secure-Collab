@@ -14,10 +14,13 @@ def create_app(config_class=Config):
 
     # Initialize extensions
     db.init_app(flask_app)
+    migrate.init_app(flask_app, db)
     jwt.init_app(flask_app)
     cors.init_app(flask_app, resources={r"/*": {"origins": "*"}})
-    migrate.init_app(flask_app, db)
-    socketio.init_app(flask_app)
+    if flask_app.config.get("REDIS_URL"):
+        socketio.init_app(flask_app, message_queue=flask_app.config["REDIS_URL"])
+    else:
+        socketio.init_app(flask_app)
 
     # Register socket event handlers
     with flask_app.app_context():
@@ -67,7 +70,8 @@ def create_app(config_class=Config):
         return error_response("File size exceeds 50MB limit", 413)
 
     # Create tables automatically for instant out-of-the-box readiness
-    with flask_app.app_context():
-        db.create_all()
+    if not os.getenv("SKIP_DB_CREATE"):
+        with flask_app.app_context():
+            db.create_all()
 
     return flask_app

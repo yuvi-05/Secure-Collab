@@ -1,15 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
 import * as Y from 'yjs';
+import * as awarenessProtocol from 'y-protocols/awareness';
 import { MonacoBinding } from 'y-monaco';
 import {
   Sparkles,
-  Save,
-  Play,
-  RotateCcw,
-  Users,
   CheckCircle2,
-  AlertCircle,
   Code2,
 } from 'lucide-react';
 import FileTree from './FileTree';
@@ -57,14 +53,29 @@ export const CodeWorkspace = ({ workspaceId, project }) => {
   const [selectedCode, setSelectedCode] = useState('');
   const [activePeers, setActivePeers] = useState([]);
   const [saveStatus, setSaveStatus] = useState('saved'); // 'saved' | 'saving' | 'synced'
+  const [editorMounted, setEditorMounted] = useState(false);
 
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
   const ydocRef = useRef(null);
   const bindingRef = useRef(null);
+  const awarenessRef = useRef(null);
   const myColorRef = useRef(
     PEER_COLORS[Math.floor(Math.random() * PEER_COLORS.length)]
   );
+
+  // Open file in tab
+  const handleOpenFile = useCallback((file) => {
+    if (!file || file.is_directory) return;
+
+    setOpenFiles((prev) => {
+      if (!prev.some((f) => f.id === file.id)) {
+        return [...prev, file];
+      }
+      return prev;
+    });
+    setActiveFile(file);
+  }, []);
 
   // Load project files on mount
   const loadFiles = useCallback(async () => {
@@ -83,21 +94,11 @@ export const CodeWorkspace = ({ workspaceId, project }) => {
     } catch (err) {
       showToast('Error loading project files: ' + err.message, 'error');
     }
-  }, [workspaceId, project.id, openFiles.length, showToast]);
+  }, [workspaceId, project.id, openFiles.length, showToast, handleOpenFile]);
 
   useEffect(() => {
     loadFiles();
   }, [loadFiles]);
-
-  // Open file in tab
-  const handleOpenFile = async (file) => {
-    if (file.is_directory) return;
-
-    if (!openFiles.some((f) => f.id === file.id)) {
-      setOpenFiles((prev) => [...prev, file]);
-    }
-    setActiveFile(file);
-  };
 
   const handleCloseTab = (fileId) => {
     const remaining = openFiles.filter((f) => f.id !== fileId);
@@ -107,14 +108,18 @@ export const CodeWorkspace = ({ workspaceId, project }) => {
     }
   };
 
-  // Setup Yjs Collaborative session whenever activeFile changes
+  // Setup Yjs Collaborative session whenever activeFile changes or editor mounts
   useEffect(() => {
     if (!activeFile || !editorRef.current) return;
 
-    // 1. Clean up previous binding & doc
+    // 1. Clean up previous binding & doc & awareness
     if (bindingRef.current) {
       bindingRef.current.destroy();
       bindingRef.current = null;
+    }
+    if (awarenessRef.current) {
+      awarenessRef.current.destroy();
+      awarenessRef.current = null;
     }
     if (ydocRef.current) {
       ydocRef.current.destroy();
@@ -130,6 +135,14 @@ export const CodeWorkspace = ({ workspaceId, project }) => {
     const doc = new Y.Doc();
     ydocRef.current = doc;
     const ytext = doc.getText('monaco');
+
+    // Create Yjs Awareness for multi-user cursors & selections
+    const awareness = new awarenessProtocol.Awareness(doc);
+    awarenessRef.current = awareness;
+    awareness.setLocalStateField('user', {
+      name: user?.full_name || user?.username || 'Collaborator',
+      color: myColorRef.current,
+    });
 
     // 2. Load latest Yjs state / initial file content from backend
     const initializeDoc = async () => {
@@ -152,16 +165,16 @@ export const CodeWorkspace = ({ workspaceId, project }) => {
           ytext.insert(0, activeFile.content);
         }
 
-        // 3. Bind Y.Text to Monaco editor model
+        // 3. Bind Y.Text & Awareness to Monaco editor model
         if (editorRef.current) {
           const model = editorRef.current.getModel();
           if (model) {
-            // Bind Monaco with Yjs CRDT
+            // Bind Monaco with Yjs CRDT + Live Awareness (Cursors & Selections)
             const binding = new MonacoBinding(
               ytext,
               model,
               new Set([editorRef.current]),
-              null
+              awareness
             );
             bindingRef.current = binding;
           }
@@ -201,7 +214,20 @@ export const CodeWorkspace = ({ workspaceId, project }) => {
       setSaveStatus('synced');
     };
 
+    // Broadcast local cursor/selection changes
+    const handleAwarenessUpdate = ({ added, updated, removed }, origin) => {
+      if (origin === 'remote') return;
+      const changedClients = added.concat(updated).concat(removed);
+      const encoded = awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients);
+      socketClient.emit('yjs_awareness_update', {
+        project_id: project.id,
+        file_id: activeFile.id,
+        awareness: uint8ArrayToBase64(encoded),
+      });
+    };
+
     doc.on('update', handleDocUpdate);
+    awareness.on('update', handleAwarenessUpdate);
 
     // 6. Listen for incoming remote Yjs updates
     const handleRemoteUpdate = (data) => {
@@ -215,6 +241,17 @@ export const CodeWorkspace = ({ workspaceId, project }) => {
       }
     };
 
+    const handleRemoteAwareness = (data) => {
+      if (data.file_id === activeFile.id && data.awareness && awarenessRef.current) {
+        try {
+          const bytes = base64ToUint8Array(data.awareness);
+          awarenessProtocol.applyAwarenessUpdate(awarenessRef.current, bytes, 'remote');
+        } catch (err) {
+          console.error('Remote awareness error:', err);
+        }
+      }
+    };
+
     const handlePeersUpdate = (data) => {
       if (data.file_id === activeFile.id) {
         setActivePeers(data.peers || []);
@@ -222,32 +259,41 @@ export const CodeWorkspace = ({ workspaceId, project }) => {
     };
 
     socketClient.on('yjs_sync_update', handleRemoteUpdate);
+    socketClient.on('yjs_awareness_update', handleRemoteAwareness);
     socketClient.on('collab_peers_update', handlePeersUpdate);
 
     return () => {
       socketClient.off('yjs_sync_update', handleRemoteUpdate);
+      socketClient.off('yjs_awareness_update', handleRemoteAwareness);
       socketClient.off('collab_peers_update', handlePeersUpdate);
       doc.off('update', handleDocUpdate);
+      awareness.off('update', handleAwarenessUpdate);
       if (bindingRef.current) {
         bindingRef.current.destroy();
         bindingRef.current = null;
       }
+      awareness.destroy();
+      awarenessRef.current = null;
       doc.destroy();
       socketClient.emit('collab_leave', {
         project_id: project.id,
         file_id: activeFile.id,
       });
     };
-  }, [activeFile?.id, project.id, workspaceId, user]);
+  }, [activeFile?.id, project.id, workspaceId, user, editorMounted]);
 
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+    setEditorMounted(true);
 
     // Track text selection for AI assistant
     editor.onDidChangeCursorSelection((e) => {
-      const selected = editor.getModel().getValueInRange(e.selection);
-      setSelectedCode(selected);
+      const model = editor.getModel();
+      if (model && e.selection) {
+        const selected = model.getValueInRange(e.selection);
+        setSelectedCode(selected);
+      }
     });
   };
 

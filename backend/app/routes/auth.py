@@ -32,7 +32,7 @@ def register():
         email=email,
         full_name=full_name or username,
         is_online=True,
-        last_seen=datetime.datetime.utcnow()
+        last_seen=datetime.datetime.now(datetime.timezone.utc)
     )
     user.set_password(password)
 
@@ -64,7 +64,7 @@ def login():
         return error_response("Invalid credentials", 401)
 
     user.is_online = True
-    user.last_seen = datetime.datetime.utcnow()
+    user.last_seen = datetime.datetime.now(datetime.timezone.utc)
     db.session.commit()
 
     token = create_access_token(identity=str(user.id))
@@ -78,7 +78,7 @@ def login():
 @jwt_required()
 def get_current_profile():
     user_id = get_jwt_identity()
-    user = User.query.get(int(user_id))
+    user = db.session.get(User, int(user_id))
     if not user:
         return error_response("User not found", 404)
 
@@ -89,7 +89,7 @@ def get_current_profile():
 @jwt_required()
 def update_profile():
     user_id = get_jwt_identity()
-    user = User.query.get(int(user_id))
+    user = db.session.get(User, int(user_id))
     if not user:
         return error_response("User not found", 404)
 
@@ -125,9 +125,9 @@ def search_users():
 @jwt_required()
 def logout():
     user_id = get_jwt_identity()
-    user = User.query.get(int(user_id))
+    user = db.session.get(User, int(user_id))
     if user:
         user.is_online = False
-        user.last_seen = datetime.datetime.utcnow()
+        user.last_seen = datetime.datetime.now(datetime.timezone.utc)
         db.session.commit()
     return success_response(None, "Logged out successfully")

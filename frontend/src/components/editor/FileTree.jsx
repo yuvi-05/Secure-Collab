@@ -136,14 +136,21 @@ export const FileTree = ({
             return (
               <div
                 key={file.id}
-                onClick={() => !file.is_directory && onSelectFile(file)}
+                onClick={() => file.is_directory ? toggleFolder(file.path) : onSelectFile(file)}
                 className={`group flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer transition-colors ${
                   isActive
                     ? 'bg-indigo-600/30 text-indigo-300 font-medium'
                     : 'hover:bg-slate-800/80 text-slate-300 hover:text-white'
                 }`}
               >
-                <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 truncate flex-1 min-w-0">
+                  {file.is_directory && (
+                    collapsedFolders.has(file.path) ? (
+                      <ChevronRight className="w-3 h-3 text-slate-500 shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-3 h-3 text-slate-500 shrink-0" />
+                    )
+                  )}
                   {getFileIcon(file)}
                   {isRenaming ? (
                     <input

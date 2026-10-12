@@ -88,7 +88,7 @@ def create_workspace():
 @workspace_member_required()
 def get_workspace_details(workspace_id):
     current_user = get_current_user()
-    workspace = Workspace.query.get(workspace_id)
+    workspace = db.session.get(Workspace, workspace_id)
     if not workspace:
         return error_response("Workspace not found", 404)
 
@@ -115,7 +115,7 @@ def get_workspace_details(workspace_id):
 @jwt_required()
 @workspace_member_required(roles=["owner", "admin"])
 def update_workspace(workspace_id):
-    workspace = Workspace.query.get(workspace_id)
+    workspace = db.session.get(Workspace, workspace_id)
     data = request.get_json() or {}
     if "name" in data and data["name"].strip():
         workspace.name = data["name"].strip()
@@ -132,7 +132,7 @@ def update_workspace(workspace_id):
 @jwt_required()
 @workspace_member_required(roles=["owner"])
 def delete_workspace(workspace_id):
-    workspace = Workspace.query.get(workspace_id)
+    workspace = db.session.get(Workspace, workspace_id)
     db.session.delete(workspace)
     db.session.commit()
     return success_response(None, "Workspace deleted successfully")
@@ -157,7 +157,7 @@ def add_member(workspace_id):
     if not user_id:
         return error_response("User ID is required", 400)
 
-    user = User.query.get(int(user_id))
+    user = db.session.get(User, int(user_id))
     if not user:
         return error_response("User not found", 404)
 
@@ -249,7 +249,7 @@ def create_invitation(workspace_id):
     # Send in-app notification if user already exists
     target_user = User.query.filter_by(email=email).first()
     if target_user:
-        ws = Workspace.query.get(workspace_id)
+        ws = db.session.get(Workspace, workspace_id)
         notif = Notification(
             user_id=target_user.id,
             actor_id=current_user.id,
