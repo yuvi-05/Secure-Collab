@@ -10,8 +10,11 @@ export const projectService = {
   async getProject(workspaceId, projectId) {
     return api.get(`/workspaces/${workspaceId}/projects/${projectId}`);
   },
-  async addMember(workspaceId, projectId, userId) {
-    return api.post(`/workspaces/${workspaceId}/projects/${projectId}/members`, { user_id: userId });
+  async deleteProject(workspaceId, projectId) {
+    return api.delete(`/workspaces/${workspaceId}/projects/${projectId}`);
+  },
+  async addMember(workspaceId, projectId, userId, role = 'viewer') {
+    return api.post(`/workspaces/${workspaceId}/projects/${projectId}/members`, { user_id: userId, role });
   },
   async removeMember(workspaceId, projectId, userId) {
     return api.delete(`/workspaces/${workspaceId}/projects/${projectId}/members/${userId}`);

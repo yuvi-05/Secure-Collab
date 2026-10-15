@@ -8,7 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import socketClient from '../../socket/socketClient';
 
-export const ChatArea = ({ workspaceId, channel, conversation, readOnly = false }) => {
+export const ChatArea = ({ workspaceId, channel, conversation, readOnly = false, canDeleteForEveryone = false }) => {
   const { user } = useAuth();
   const { showToast } = useToast();
 
@@ -128,6 +128,23 @@ export const ChatArea = ({ workspaceId, channel, conversation, readOnly = false 
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  useEffect(() => {
+    const expirationTimers = messages
+      .filter((message) => message.expires_at)
+      .map((message) => {
+        const expiryTime = new Date(message.expires_at).getTime();
+        const delay = expiryTime - Date.now();
+        if (!Number.isFinite(expiryTime)) return null;
+        return window.setTimeout(() => {
+          setMessages((prev) => prev.filter((item) => item.id !== message.id));
+        }, Math.max(delay, 0));
+      });
+
+    return () => expirationTimers
+      .filter((timer) => timer !== null)
+      .forEach((timer) => window.clearTimeout(timer));
+  }, [messages]);
+
   const handleSendMessage = async ({ content, attachment_ids }) => {
     try {
       const payload = {
@@ -158,10 +175,11 @@ export const ChatArea = ({ workspaceId, channel, conversation, readOnly = false 
     }
   };
 
-  const handleDelete = async (messageId) => {
+  const handleDelete = async (messageId, deleteForEveryone) => {
     try {
-      await messageService.deleteMessage(workspaceId, messageId);
-      showToast('Message deleted', 'success');
+      await messageService.deleteMessage(workspaceId, messageId, deleteForEveryone);
+      setMessages((prev) => prev.filter((message) => message.id !== messageId));
+      showToast(deleteForEveryone ? 'Message deleted for everyone' : 'Message deleted for you', 'success');
     } catch (err) {
       showToast('Delete failed: ' + err.message, 'error');
     }
@@ -222,6 +240,7 @@ export const ChatArea = ({ workspaceId, channel, conversation, readOnly = false 
                 onOpenThread={(msg) => setActiveThread(msg)}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                canDeleteForEveryone={canDeleteForEveryone}
                 readOnly={readOnly}
               />
             ))

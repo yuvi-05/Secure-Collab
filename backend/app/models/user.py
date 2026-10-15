@@ -11,12 +11,13 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(256), nullable=False)
     full_name = db.Column(db.String(120), nullable=True)
-    avatar_url = db.Column(db.String(512), nullable=True)
+    avatar_url = db.Column(db.Text, nullable=True)
     bio = db.Column(db.String(255), nullable=True)
     is_online = db.Column(db.Boolean, default=False)
     last_seen = db.Column(db.DateTime, default=utc_now)
     is_active = db.Column(db.Boolean, nullable=False, default=True, index=True)
     is_super_admin = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    username_changes_count = db.Column(db.Integer, nullable=False, default=0)
     created_at = db.Column(db.DateTime, default=utc_now)
     updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
 
@@ -41,6 +42,7 @@ class User(db.Model):
             "bio": self.bio or "",
             "is_online": self.is_online,
             "is_super_admin": self.is_super_admin,
+            "username_changes_count": self.username_changes_count,
             "last_seen": self.last_seen.isoformat() if self.last_seen else None,
             "created_at": self.created_at.isoformat() if self.created_at else None
         }

@@ -8,8 +8,8 @@ import {
   Users,
   ChevronDown,
   UserPlus,
-  Settings,
   ShieldCheck,
+  Trash2,
 } from 'lucide-react';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -21,7 +21,6 @@ export const Sidebar = ({
   onOpenCreateProject,
   onOpenStartDM,
   onOpenInvite,
-  onOpenWorkspaceSettings,
 }) => {
   const {
     currentWorkspace,
@@ -37,6 +36,9 @@ export const Sidebar = ({
     viewMode,
     setViewMode,
     unreadCounts,
+    deleteProject,
+    deleteConversation,
+    clearActiveView,
   } = useWorkspace();
 
   const { user } = useAuth();
@@ -51,9 +53,11 @@ export const Sidebar = ({
     );
   }
 
-  const canInviteMembers = currentWorkspace.my_role === 'owner';
+  const isPersonalWorkspace = currentWorkspace.is_personal;
+  const canInviteMembers = currentWorkspace.my_role === 'owner' && !isPersonalWorkspace;
   const canCreateProject = ['owner', 'project_manager'].includes(currentWorkspace.my_role);
-  const canCreateChannel = currentWorkspace.my_role === 'owner';
+  const canDeleteProject = ['owner', 'project_manager'].includes(currentWorkspace.my_role);
+  const canCreateChannel = currentWorkspace.my_role === 'owner' && !isPersonalWorkspace;
   const isGuest = currentWorkspace.my_role === 'guest';
 
   return (
@@ -82,13 +86,6 @@ export const Sidebar = ({
               <UserPlus className="w-4 h-4 text-indigo-400" />
               Invite Teammates
             </button>
-            <button
-              onClick={onOpenWorkspaceSettings}
-              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-200 hover:bg-slate-700/80 hover:text-white text-left transition-colors"
-            >
-              <Settings className="w-4 h-4 text-slate-400" />
-              Workspace Settings
-            </button>
           </div>
         )}
       </div>
@@ -97,9 +94,12 @@ export const Sidebar = ({
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-6 text-sm text-slate-300">
         {/* Quick Nav Tools */}
         <div className="space-y-0.5">
-          {currentWorkspace.my_role === 'owner' && (
+          {currentWorkspace.my_role === 'owner' && !isPersonalWorkspace && (
             <button
-              onClick={() => setViewMode('admin')}
+              onClick={() => {
+                clearActiveView();
+                setViewMode('admin');
+              }}
               className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg transition-colors ${
                 viewMode === 'admin'
                   ? 'bg-indigo-600 text-white font-medium'
@@ -110,8 +110,11 @@ export const Sidebar = ({
               <span>Workspace Administration</span>
             </button>
           )}
-          <button
-            onClick={() => setViewMode('files')}
+          {!isPersonalWorkspace && <button
+            onClick={() => {
+              clearActiveView();
+              setViewMode('files');
+            }}
             className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg transition-colors ${
               viewMode === 'files'
                 ? 'bg-indigo-600 text-white font-medium'
@@ -120,9 +123,12 @@ export const Sidebar = ({
           >
             <FolderArchive className="w-4 h-4" />
             <span>Workspace Files</span>
-          </button>
-          <button
-            onClick={() => setViewMode('members')}
+          </button>}
+          {!isPersonalWorkspace && <button
+            onClick={() => {
+              clearActiveView();
+              setViewMode('members');
+            }}
             className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg transition-colors ${
               viewMode === 'members'
                 ? 'bg-indigo-600 text-white font-medium'
@@ -131,11 +137,11 @@ export const Sidebar = ({
           >
             <Users className="w-4 h-4" />
             <span>Members & Roles</span>
-          </button>
+          </button>}
         </div>
 
         {/* Channels Section */}
-        <div>
+        <div className={isPersonalWorkspace ? 'hidden' : ''}>
           <div className="flex items-center justify-between px-3 mb-1.5 text-xs font-semibold tracking-wider text-slate-400 uppercase">
             <span>Channels</span>
             {canCreateChannel && <button
@@ -200,16 +206,19 @@ export const Sidebar = ({
               const isOtherOnline = otherMember ? onlineUsers.get(otherMember.id) : false;
 
               return (
-                <button
+                <div
                   key={conv.id}
-                  onClick={() => selectConversation(conv)}
                   className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-colors ${
                     isActive
                       ? 'bg-indigo-600 text-white font-semibold shadow-sm'
                       : 'hover:bg-slate-800/80 text-slate-300 hover:text-slate-100'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5 truncate">
+                  <button
+                    type="button"
+                    onClick={() => selectConversation(conv)}
+                    className="flex min-w-0 flex-1 items-center gap-2.5 truncate text-left"
+                  >
                     <Avatar
                       name={conv.title || otherMember?.username}
                       src={otherMember?.avatar_url}
@@ -217,13 +226,29 @@ export const Sidebar = ({
                       isOnline={isOtherOnline}
                     />
                     <span className="truncate">{conv.title || otherMember?.full_name || 'DM'}</span>
-                  </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (window.confirm('Delete this chat and all of its messages? This cannot be undone.')) {
+                        deleteConversation(conv.id).catch((error) => {
+                          window.alert(`Chat could not be deleted: ${error.message}`);
+                        });
+                      }
+                    }}
+                    aria-label={`Delete chat ${conv.title || otherMember?.username || 'Direct Message'}`}
+                    title="Delete chat"
+                    className="ml-1 rounded p-1 text-slate-500 hover:bg-rose-950/50 hover:text-rose-400"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                   {unread > 0 && !isActive && (
                     <span className="ml-2 px-1.5 py-0.5 rounded-full bg-indigo-500 text-[10px] font-bold text-white leading-none shrink-0 shadow-sm">
                       {unread}
                     </span>
                   )}
-                </button>
+                </div>
               );
             })}
           </div>
@@ -256,6 +281,27 @@ export const Sidebar = ({
                 >
                   <Code2 className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span className="truncate">{proj.name}</span>
+                  {canDeleteProject && (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (window.confirm(`Delete "${proj.name}"? This cannot be undone.`)) {
+                          deleteProject(proj.id).catch((error) => {
+                            window.alert(`Project could not be deleted: ${error.message}`);
+                          });
+                        }
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') event.currentTarget.click();
+                      }}
+                      className="ml-auto rounded p-1 text-slate-500 hover:bg-rose-950/50 hover:text-rose-400"
+                      title="Delete project"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </span>
+                  )}
                 </button>
               );
             })}

@@ -1,19 +1,31 @@
-import React, { useState } from 'react';
-import { Search, Bell, Hash, Lock, Code2, Users, FolderArchive } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Search, Bell, Hash, Lock, Code2, Users, FolderArchive, ShieldCheck } from 'lucide-react';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../contexts/SocketContext';
 import NotificationDropdown from '../notifications/NotificationDropdown';
 
-export const TopNav = ({ onOpenSearch, onOpenProfile }) => {
+export const TopNav = ({ onOpenSearch, onOpenProfile, navigationVisible }) => {
   const { currentWorkspace, currentChannel, currentConversation, currentProject, viewMode } = useWorkspace();
   const { user } = useAuth();
   const { unreadCount } = useSocket();
   const [showNotifications, setShowNotifications] = useState(false);
+  const notificationRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (showNotifications && notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [showNotifications]);
 
   const getHeaderTitle = () => {
     if (viewMode === 'files') return { icon: <FolderArchive className="w-5 h-5 text-indigo-400" />, title: 'Workspace Files' };
     if (viewMode === 'members') return { icon: <Users className="w-5 h-5 text-indigo-400" />, title: 'Members & Roles' };
+    if (viewMode === 'admin') return { icon: <ShieldCheck className="w-5 h-5 text-indigo-400" />, title: 'Workspace Administration' };
     if (viewMode === 'project' && currentProject) {
       return { icon: <Code2 className="w-5 h-5 text-emerald-400" />, title: currentProject.name };
     }
@@ -30,13 +42,13 @@ export const TopNav = ({ onOpenSearch, onOpenProfile }) => {
         title: currentConversation.title,
       };
     }
-    return { icon: null, title: currentWorkspace?.name || 'Secure-Collab' };
+    return { icon: null, title: navigationVisible ? '' : (currentWorkspace?.name || 'Secure-Collab') };
   };
 
   const header = getHeaderTitle();
 
   return (
-    <header className="h-14 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 backdrop-blur-md px-4 flex items-center justify-between shrink-0 z-20">
+    <header className="h-14 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 backdrop-blur-md px-4 flex items-center justify-between shrink-0 z-[100]">
       {/* Left Title Badge */}
       <div className="flex items-center gap-2.5 min-w-0">
         {header.icon}
@@ -67,7 +79,7 @@ export const TopNav = ({ onOpenSearch, onOpenProfile }) => {
       {/* Right Controls */}
       <div className="flex items-center gap-3">
         {/* Notification Bell */}
-        <div className="relative">
+        <div ref={notificationRef} className="relative z-[100]">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
             className="relative p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"

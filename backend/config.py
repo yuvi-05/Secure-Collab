@@ -48,6 +48,7 @@ class Config:
     AI_PROVIDER = os.getenv("AI_PROVIDER", "openai")  # openai, openrouter, mock
     SUPER_ADMIN_EMAIL = os.getenv("SUPER_ADMIN_EMAIL", "").strip().lower()
     SUPER_ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASSWORD", "")
+    CHAT_MESSAGE_TTL_SECONDS = int(os.getenv("CHAT_MESSAGE_TTL_SECONDS", "31536000"))
 
     # CORS
     CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")

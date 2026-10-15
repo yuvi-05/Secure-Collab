@@ -7,6 +7,25 @@ export const NotificationDropdown = ({ onClose }) => {
   const { notifications, unreadCount, markAllNotificationsRead, markNotificationRead } = useSocket();
   const navigate = useNavigate();
 
+  const formatContent = (content) => {
+    if (typeof content !== 'string') return '';
+    const separator = content.indexOf(': ');
+    if (separator === -1) return content;
+    const prefix = content.slice(0, separator + 2);
+    const payload = content.slice(separator + 2);
+    try {
+      const details = JSON.parse(payload);
+      if (!details || typeof details !== 'object' || Array.isArray(details)) return content;
+      return `${prefix}${Object.entries(details)
+        .map(([key, value]) => `${key.replaceAll('_', ' ')}: ${
+          Array.isArray(value) ? value.join(', ') : String(value)
+        }`)
+        .join(' · ')}`;
+    } catch {
+      return content;
+    }
+  };
+
   const getIcon = (type) => {
     switch (type) {
       case 'mention':
@@ -34,7 +53,7 @@ export const NotificationDropdown = ({ onClose }) => {
   };
 
   return (
-    <div className="absolute right-0 top-12 w-80 sm:w-96 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95">
+    <div className="absolute right-0 top-12 w-80 sm:w-96 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-[1000] animate-in fade-in zoom-in-95">
       <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
         <div className="flex items-center gap-2 font-semibold text-sm text-slate-900 dark:text-slate-100">
           <span>Notifications</span>
@@ -79,7 +98,7 @@ export const NotificationDropdown = ({ onClose }) => {
                   {n.title}
                 </div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
-                  {n.content}
+                  {formatContent(n.content)}
                 </div>
                 <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
                   {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

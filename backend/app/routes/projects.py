@@ -129,6 +129,19 @@ def update_project(workspace_id, project_id):
     return success_response({"project": project.to_dict()}, "Project updated")
 
 
+@projects_bp.route("/<int:project_id>", methods=["DELETE"])
+@jwt_required()
+@project_manager_required()
+def delete_project(workspace_id, project_id):
+    project = CodingProject.query.filter_by(id=project_id, workspace_id=workspace_id).first()
+    if not project:
+        return error_response("Project not found", 404)
+    db.session.delete(project)
+    db.session.commit()
+    socketio.emit("project_deleted", {"project_id": project_id}, room=f"workspace_{workspace_id}")
+    return success_response(None, "Project deleted successfully")
+
+
 @projects_bp.route("/<int:project_id>/members", methods=["POST"])
 @jwt_required()
 @project_manager_required()
@@ -139,6 +152,7 @@ def add_project_member(workspace_id, project_id):
 
     data = request.get_json() or {}
     user_id = data.get("user_id")
+    role = data.get("role")
     if isinstance(user_id, bool) or not isinstance(user_id, int):
         return error_response("A valid user ID is required", 400)
     member = WorkspaceMember.query.filter_by(workspace_id=workspace_id, user_id=user_id).first()
@@ -148,6 +162,10 @@ def add_project_member(workspace_id, project_id):
         return error_response("Inactive accounts cannot be assigned to projects", 400)
     if member.role not in ["developer", "team_member", "guest"]:
         return error_response("Only developers, team members, or guests can be assigned to projects", 400)
+    if role is None:
+        role = "editor" if member.role == "developer" else "viewer"
+    if role not in {"viewer", "editor"}:
+        return error_response("Project access role must be viewer or editor", 400)
     existing = ProjectMember.query.filter_by(project_id=project_id, user_id=user_id).first()
     if existing:
         return error_response("User is already assigned to this project", 409)
@@ -155,7 +173,7 @@ def add_project_member(workspace_id, project_id):
     project_member = ProjectMember(
         project_id=project_id,
         user_id=user_id,
-        role="editor" if member.role == "developer" else "viewer"
+        role=role
     )
     db.session.add(project_member)
     db.session.add(WorkspaceAuditLog(

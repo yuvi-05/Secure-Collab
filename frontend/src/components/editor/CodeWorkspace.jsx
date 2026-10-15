@@ -7,7 +7,7 @@ import {
   Sparkles,
   CheckCircle2,
   Code2,
-  UserMinus,
+  Users,
   UserPlus,
 } from 'lucide-react';
 import FileTree from './FileTree';
@@ -58,10 +58,24 @@ export const CodeWorkspace = ({ workspaceId, project, effectiveRole, readOnly = 
   const [saveStatus, setSaveStatus] = useState('saved'); // 'saved' | 'saving' | 'synced'
   const [editorMounted, setEditorMounted] = useState(false);
   const [showProjectMembers, setShowProjectMembers] = useState(false);
+  const [showProjectAccessUsers, setShowProjectAccessUsers] = useState(false);
   const [projectMembers, setProjectMembers] = useState([]);
   const [workspaceMembers, setWorkspaceMembers] = useState([]);
   const [selectedMemberId, setSelectedMemberId] = useState('');
+  const [selectedMemberRole, setSelectedMemberRole] = useState('viewer');
   const [membersLoading, setMembersLoading] = useState(false);
+
+  useEffect(() => {
+    if (!showProjectMembers && !showProjectAccessUsers) return undefined;
+    const handleOutsideClick = (event) => {
+      if (!event.target.closest('[data-project-access-ui]')) {
+        setShowProjectMembers(false);
+        setShowProjectAccessUsers(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [showProjectMembers, showProjectAccessUsers]);
 
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
@@ -392,22 +406,18 @@ export const CodeWorkspace = ({ workspaceId, project, effectiveRole, readOnly = 
     event.preventDefault();
     if (!selectedMemberId) return;
     try {
-      await projectService.addMember(workspaceId, project.id, Number(selectedMemberId));
+      await projectService.addMember(
+        workspaceId,
+        project.id,
+        Number(selectedMemberId),
+        selectedMemberRole
+      );
       setSelectedMemberId('');
+      setSelectedMemberRole('viewer');
       await loadProjectMembers();
       showToast('Member assigned to project', 'success');
     } catch (err) {
       showToast(`Could not assign member: ${err.message}`, 'error');
-    }
-  };
-
-  const handleRemoveProjectMember = async (member) => {
-    try {
-      await projectService.removeMember(workspaceId, project.id, member.user_id);
-      await loadProjectMembers();
-      showToast('Member removed from project', 'success');
-    } catch (err) {
-      showToast(`Could not remove member: ${err.message}`, 'error');
     }
   };
 
@@ -416,7 +426,7 @@ export const CodeWorkspace = ({ workspaceId, project, effectiveRole, readOnly = 
       ['developer', 'team_member', 'guest'].includes(member.role) &&
       !projectMembers.some((assigned) => assigned.user_id === member.user_id)
   );
-  const canManageProjectMembers = ['owner', 'project_manager'].includes(effectiveRole);
+  const canManageProjectMembers = effectiveRole === 'project_manager';
 
   return (
     <div className="flex-1 h-full flex flex-row overflow-hidden bg-slate-950">
@@ -447,32 +457,35 @@ export const CodeWorkspace = ({ workspaceId, project, effectiveRole, readOnly = 
           {/* Active Collaborators Presence Avatars */}
           <div className="flex items-center gap-2 pl-2 shrink-0">
             {canManageProjectMembers && (
-              <button
-                onClick={() => {
-                  const opening = !showProjectMembers;
-                  setShowProjectMembers(opening);
-                  if (opening) loadProjectMembers();
-                }}
-                className="px-2 py-1.5 rounded-lg text-xs text-slate-300 bg-slate-800 hover:bg-slate-700"
-              >
-                Project access
-              </button>
+              <>
+                <button
+                  data-project-access-ui
+                  onClick={() => {
+                    const opening = !showProjectMembers;
+                    setShowProjectMembers(opening);
+                    setShowProjectAccessUsers(false);
+                    if (opening) loadProjectMembers();
+                  }}
+                  className="px-2 py-1.5 rounded-lg text-xs text-slate-300 bg-slate-800 hover:bg-slate-700"
+                >
+                  Project access
+                </button>
+                <button
+                  data-project-access-ui
+                  onClick={() => {
+                    const opening = !showProjectAccessUsers;
+                    setShowProjectAccessUsers(opening);
+                    setShowProjectMembers(false);
+                    if (opening) loadProjectMembers();
+                  }}
+                  aria-label="Show project access users"
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-slate-300 bg-slate-800 hover:bg-slate-700"
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  Access users
+                </button>
+              </>
             )}
-            {activePeers.length > 0 && (
-              <div className="flex items-center -space-x-1.5" title="Active collaborators editing this file">
-                {activePeers.map((peer, idx) => (
-                  <div
-                    key={idx}
-                    className="w-6 h-6 rounded-full border-2 border-slate-900 flex items-center justify-center text-[10px] font-bold text-white shadow"
-                    style={{ backgroundColor: peer.color || '#6366f1' }}
-                    title={`${peer.username} (active)`}
-                  >
-                    {(peer.username?.[0] || 'U').toUpperCase()}
-                  </div>
-                ))}
-              </div>
-            )}
-
             {/* AI Assistant Toggle Button */}
             {!readOnly && <button
               onClick={() => setIsAiOpen(!isAiOpen)}
@@ -489,44 +502,75 @@ export const CodeWorkspace = ({ workspaceId, project, effectiveRole, readOnly = 
         </div>
 
         {showProjectMembers && canManageProjectMembers && (
-          <section className="absolute right-3 top-16 z-20 w-80 max-h-[70vh] overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-4 shadow-2xl">
+          <section data-project-access-ui className="absolute right-3 top-16 z-20 w-80 max-h-[70vh] overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-4 shadow-2xl">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold text-white">Project access</h2>
               <button onClick={() => setShowProjectMembers(false)} className="text-xs text-slate-400 hover:text-white">Close</button>
             </div>
             {membersLoading ? <p className="text-xs text-slate-400">Loading members...</p> : (
-              <>
-                <form onSubmit={handleAddProjectMember} className="flex gap-2 mb-4">
-                  <select value={selectedMemberId} onChange={(event) => setSelectedMemberId(event.target.value)} className="min-w-0 flex-1 rounded-lg bg-slate-800 border border-slate-700 px-2 py-1.5 text-xs text-white">
+                <form onSubmit={handleAddProjectMember} className="space-y-2">
+                  <select value={selectedMemberId} onChange={(event) => setSelectedMemberId(event.target.value)} className="w-full rounded-lg bg-slate-800 border border-slate-700 px-2 py-1.5 text-xs text-white">
                     <option value="">Select workspace member</option>
-                    {eligibleMembers.map((member) => (
+                    {eligibleMembers.length === 0 ? (
+                      <option value="" disabled>No eligible workspace members available</option>
+                    ) : eligibleMembers.map((member) => (
                       <option key={member.user_id} value={member.user_id}>
                         {member.user?.full_name || member.user?.username} · {member.role.replace('_', ' ')}
                       </option>
                     ))}
                   </select>
-                  <button disabled={!selectedMemberId} className="rounded-lg bg-indigo-600 px-2 text-white disabled:opacity-50" title="Assign member">
-                    <UserPlus className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <select value={selectedMemberRole} onChange={(event) => setSelectedMemberRole(event.target.value)} className="flex-1 rounded-lg bg-slate-800 border border-slate-700 px-2 py-1.5 text-xs text-white">
+                      <option value="viewer">Viewer</option>
+                      <option value="editor">Editor</option>
+                    </select>
+                    <button disabled={!selectedMemberId} className="rounded-lg bg-indigo-600 px-2 py-1.5 text-white disabled:opacity-50" title="Assign project access">
+                      <UserPlus className="w-4 h-4" />
+                    </button>
+                  </div>
                 </form>
-                <div className="space-y-2">
-                  {projectMembers.map((member) => (
-                    <div key={member.user_id} className="flex items-center justify-between gap-2 text-xs">
-                      <span className="truncate text-slate-200">
-                        {member.user?.full_name || member.user?.username} <span className="text-slate-500">({member.role})</span>
-                      </span>
-                      {member.user_id !== project.created_by && (
-                        <button onClick={() => handleRemoveProjectMember(member)} className="text-rose-400 hover:text-rose-300" title="Remove project access">
-                          <UserMinus className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  {projectMembers.length === 0 && <p className="text-xs text-slate-500">No project members have been assigned.</p>}
-                </div>
-              </>
             )}
+
           </section>
+        )}
+
+        {showProjectAccessUsers && canManageProjectMembers && (
+              <section data-project-access-ui className="absolute right-3 top-16 z-20 w-80 max-h-[70vh] overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-4 shadow-2xl">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-semibold text-white">Users with project access</h2>
+                  <button onClick={() => setShowProjectAccessUsers(false)} className="text-xs text-slate-400 hover:text-white">Close</button>
+                </div>
+                {membersLoading ? <p className="text-xs text-slate-400">Loading users...</p> : projectMembers.length === 0 ? (
+                  <p className="text-xs text-slate-400">No access users have been assigned to this project yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {projectMembers.map((member) => (
+                      <div key={member.user_id} className="flex items-center justify-between gap-2 rounded-lg bg-slate-800 px-3 py-2 text-xs">
+                        <span className="truncate text-slate-200">
+                          {member.user?.full_name || member.user?.username || 'Workspace user'}
+                        </span>
+                        <span className="flex shrink-0 items-center gap-2 capitalize text-slate-400">
+                          {member.role}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Remove ${member.user?.full_name || member.user?.username || 'this user'} from project access?`)) {
+                                projectService.removeMember(workspaceId, project.id, member.user_id)
+                                  .then(loadProjectMembers)
+                                  .then(() => showToast('Project access removed', 'success'))
+                                  .catch((error) => showToast(`Could not remove project access: ${error.message}`, 'error'));
+                              }
+                            }}
+                            className="rounded px-1.5 py-0.5 text-rose-400 hover:bg-rose-950/50"
+                          >
+                            Remove
+                          </button>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
         )}
 
         {/* Monaco Editor */}

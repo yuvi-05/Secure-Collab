@@ -7,6 +7,7 @@ from app.models.workspace import (
 from app.models.channel import Channel, ChannelMember
 from app.models.conversation import Conversation, ConversationMember
 from app.models.message import Message, MessageReaction
+from app.models.message_hidden import HiddenMessage
 from app.models.file import FileAttachment
 from app.models.project import CodingProject, ProjectMember, ProjectFile
 from app.models.document import CollaborativeDocument
@@ -26,6 +27,7 @@ __all__ = [
     "ConversationMember",
     "Message",
     "MessageReaction",
+    "HiddenMessage",
     "FileAttachment",
     "CodingProject",
     "ProjectMember",

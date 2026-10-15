@@ -10,6 +10,15 @@ export const workspaceService = {
   async listAdminUsers() {
     return api.get('/workspaces/admin/users');
   },
+  async listPersonalProjects() {
+    return api.get('/workspaces/admin/personal-projects');
+  },
+  async deletePersonalProject(projectId) {
+    return api.delete(`/workspaces/admin/personal-projects/${projectId}`);
+  },
+  async warnPersonalProject(projectId, message) {
+    return api.post(`/workspaces/admin/personal-projects/${projectId}/warn`, { message });
+  },
   async updateWorkspaceOwner(workspaceId, ownerId) {
     return api.put(`/workspaces/${workspaceId}/owner`, { owner_id: ownerId });
   },

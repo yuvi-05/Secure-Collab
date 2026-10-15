@@ -51,10 +51,10 @@ export const WorkspaceSwitcher = ({ onOpenProfile, onToggleNavigation, navigatio
           {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-400" />}
         </button>
 
-        {/* User Profile & Logout */}
+        {/* Profile */}
         <button
           onClick={onOpenProfile}
-          title={`${user?.full_name || user?.username} (Profile & Settings)`}
+          title="Profile"
           className="w-10 h-10 rounded-xl bg-slate-800 hover:ring-2 hover:ring-indigo-500 flex items-center justify-center text-sm font-semibold text-slate-200 transition-all overflow-hidden"
         >
           {user?.avatar_url ? (

@@ -46,6 +46,28 @@ def slugify(name: str) -> str:
 @jwt_required()
 def list_my_workspaces():
     current_user = get_current_user()
+    existing_membership = WorkspaceMember.query.filter_by(user_id=current_user.id).first()
+    memberships = WorkspaceMember.query.filter_by(user_id=current_user.id, is_active=True).all()
+    if not current_user.is_super_admin:
+        personal_workspace = Workspace.query.filter_by(
+            owner_id=current_user.id, is_personal=True
+        ).first()
+        if not personal_workspace and (existing_membership is None or memberships):
+            personal_workspace = Workspace(
+                name=f"{current_user.full_name or current_user.username}'s Personal Workspace",
+                slug=slugify(f"personal-{current_user.username}"),
+                description="A private workspace for individually owned projects.",
+                owner_id=current_user.id,
+                is_personal=True,
+            )
+            db.session.add(personal_workspace)
+            db.session.flush()
+            db.session.add(WorkspaceMember(
+                workspace_id=personal_workspace.id,
+                user_id=current_user.id,
+                role="owner",
+            ))
+            db.session.commit()
     memberships = WorkspaceMember.query.filter_by(user_id=current_user.id, is_active=True).all()
     workspaces = []
     for m in memberships:
@@ -124,11 +146,73 @@ def create_workspace():
 @jwt_required()
 @super_admin_required()
 def list_all_workspaces():
-    workspaces = Workspace.query.order_by(Workspace.created_at.desc()).all()
+    workspaces = Workspace.query.filter_by(is_personal=False).order_by(Workspace.created_at.desc()).all()
     return success_response({"workspaces": [
         {**workspace.to_dict(), "owner": workspace.owner.to_dict() if workspace.owner else None}
         for workspace in workspaces
     ]})
+
+
+@workspaces_bp.route("/admin/personal-projects", methods=["GET"])
+@jwt_required()
+@super_admin_required()
+def list_personal_projects():
+    projects = CodingProject.query.join(Workspace).filter(
+        Workspace.is_personal.is_(True),
+        CodingProject.is_active.is_(True)
+    ).order_by(CodingProject.updated_at.desc()).all()
+    return success_response({"projects": [
+        {
+            **project.to_dict(),
+            "workspace_name": project.workspace.name,
+            "owner": project.creator.to_dict() if project.creator else None,
+        }
+        for project in projects
+    ]})
+
+
+@workspaces_bp.route("/admin/personal-projects/<int:project_id>", methods=["DELETE"])
+@jwt_required()
+@super_admin_required()
+def delete_personal_project(project_id):
+    project = CodingProject.query.join(Workspace).filter(
+        CodingProject.id == project_id,
+        Workspace.is_personal.is_(True),
+    ).first()
+    if not project:
+        return error_response("Personal project not found", 404)
+    db.session.delete(project)
+    db.session.commit()
+    return success_response(None, "Personal project deleted successfully")
+
+
+@workspaces_bp.route("/admin/personal-projects/<int:project_id>/warn", methods=["POST"])
+@jwt_required()
+@super_admin_required()
+def warn_personal_project(project_id):
+    project = CodingProject.query.join(Workspace).filter(
+        CodingProject.id == project_id,
+        Workspace.is_personal.is_(True),
+    ).first()
+    if not project:
+        return error_response("Personal project not found", 404)
+    data = request.get_json(silent=True) or {}
+    message = data.get("message", "").strip()
+    if not message:
+        return error_response("Warning message is required", 400)
+    notification = Notification(
+        user_id=project.created_by,
+        actor_id=get_current_user().id,
+        workspace_id=project.workspace_id,
+        type="project_warning",
+        title="Personal project warning",
+        content=message,
+        link="",
+    )
+    db.session.add(notification)
+    db.session.commit()
+    socketio.emit("notification_new", notification.to_dict(), room=f"user_{project.created_by}")
+    return success_response(None, "Warning sent")
 
 
 @workspaces_bp.route("/admin/users", methods=["GET"])

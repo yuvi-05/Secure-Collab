@@ -8,6 +8,27 @@ const WorkspaceAdminPanel = ({ workspaceId }) => {
   const [summary, setSummary] = useState(null);
   const [maxHours, setMaxHours] = useState('unlimited');
 
+  const formatDetails = (details) => {
+    if (!details) return '';
+    try {
+      const parsed = typeof details === 'string' ? JSON.parse(details) : details;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return String(details);
+      return Object.entries(parsed)
+        .map(([key, value]) => {
+          const label = key.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+          const displayValue = Array.isArray(value)
+            ? value.join(', ')
+            : typeof value === 'boolean'
+              ? (value ? 'Yes' : 'No')
+              : String(value);
+          return `${label}: ${displayValue}`;
+        })
+        .join(' · ');
+    } catch {
+      return String(details);
+    }
+  };
+
   const loadSummary = useCallback(async () => {
     try {
       const response = await workspaceService.getAdminSummary(workspaceId);
@@ -46,16 +67,6 @@ const WorkspaceAdminPanel = ({ workspaceId }) => {
 
   return (
     <div className="flex-1 h-full overflow-y-auto bg-slate-950 p-6 text-slate-100">
-      <header className="mb-6">
-        <h1 className="flex items-center gap-2 text-2xl font-bold text-white">
-          <ShieldCheck className="h-6 w-6 text-indigo-400" />
-          Workspace Administration
-        </h1>
-        <p className="mt-1 text-sm text-slate-400">
-          Owner controls apply only to this workspace. Manage users under Members &amp; Roles.
-        </p>
-      </header>
-
       <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
         <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-white">
           <Briefcase className="h-4 w-4 text-indigo-400" />
@@ -132,7 +143,7 @@ const WorkspaceAdminPanel = ({ workspaceId }) => {
               </div>
               <p className="mt-1 text-[11px] text-slate-400">
                 {entry.target_type} {entry.target_id}
-                {entry.details && ` · ${entry.details}`}
+                {entry.details && ` · ${formatDetails(entry.details)}`}
               </p>
             </article>
           ))}

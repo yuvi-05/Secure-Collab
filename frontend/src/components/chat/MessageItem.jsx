@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Smile,
-  MessageSquare,
   Edit2,
   Trash2,
   Download,
@@ -17,6 +16,7 @@ export const MessageItem = ({
   onOpenThread,
   onEdit,
   onDelete,
+  canDeleteForEveryone = false,
   readOnly = false,
 }) => {
   const [showPicker, setShowPicker] = useState(false);
@@ -164,23 +164,11 @@ export const MessageItem = ({
           </div>
         )}
 
-        {/* Thread replies trigger badge */}
-        {message.reply_count > 0 && (
-          <button
-            onClick={() => onOpenThread(message)}
-            className="mt-2 flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition-colors"
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-            <span>
-              {message.reply_count} {message.reply_count === 1 ? 'reply' : 'replies'}
-            </span>
-          </button>
-        )}
       </div>
 
       {/* Floating Action Menu Bar on Hover */}
       {showActions && !readOnly && (
-        <div className="absolute top-1 right-4 flex items-center bg-slate-800 border border-slate-700 rounded-xl shadow-lg p-0.5 text-slate-400 z-10 animate-in fade-in zoom-in-95">
+        <div className="absolute top-1 right-4 flex items-center bg-slate-800 border border-slate-700 rounded-xl shadow-lg p-0.5 text-slate-400 z-[100] animate-in fade-in zoom-in-95">
           {/* Reaction Picker Button */}
           <div className="relative">
             <button
@@ -198,15 +186,6 @@ export const MessageItem = ({
             )}
           </div>
 
-          {/* Reply in Thread Button */}
-          <button
-            onClick={() => onOpenThread(message)}
-            title="Reply in thread"
-            className="p-1.5 rounded-lg hover:bg-slate-700 hover:text-indigo-400 transition-colors"
-          >
-            <MessageSquare className="w-4 h-4" />
-          </button>
-
           {/* Edit Button (author only) */}
           {isAuthor && (
             <button
@@ -219,9 +198,9 @@ export const MessageItem = ({
           )}
 
           {/* Delete Button (author or admin) */}
-          {(isAuthor || currentUserId === 1) && (
+          {(isAuthor || canDeleteForEveryone) && (
             <button
-              onClick={() => onDelete(message.id)}
+              onClick={() => onDelete(message.id, true)}
               title="Delete message"
               className="p-1.5 rounded-lg hover:bg-rose-900/60 hover:text-rose-400 transition-colors"
             >

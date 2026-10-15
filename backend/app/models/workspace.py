@@ -19,6 +19,7 @@ class Workspace(db.Model):
     slug = db.Column(db.String(120), unique=True, nullable=False, index=True)
     description = db.Column(db.String(255), nullable=True)
     icon_url = db.Column(db.String(512), nullable=True)
+    is_personal = db.Column(db.Boolean, nullable=False, default=False, index=True)
     owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
@@ -47,6 +48,7 @@ class Workspace(db.Model):
             "description": self.description or "",
             "icon_url": self.icon_url or f"https://api.dicebear.com/7.x/identicon/svg?seed={self.slug}",
             "owner_id": self.owner_id,
+            "is_personal": self.is_personal,
             "member_count": sum(1 for member in self.members if member.is_active) if self.members else 0,
             "created_at": self.created_at.isoformat() if self.created_at else None
         }

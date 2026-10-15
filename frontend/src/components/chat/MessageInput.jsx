@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
-import { Send, Paperclip, X } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Send, Paperclip, Smile, X } from 'lucide-react';
 import { fileService } from '../../services/fileService';
 import { useToast } from '../../contexts/ToastContext';
+import EmojiReactionPicker from './EmojiReactionPicker';
 
 export const MessageInput = ({ workspaceId, onSendMessage, onTypingStart, onTypingStop, placeholder }) => {
   const { showToast } = useToast();
@@ -9,8 +10,23 @@ export const MessageInput = ({ workspaceId, onSendMessage, onTypingStart, onTypi
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const fileInputRef = useRef(null);
+  const emojiPickerRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    if (!showEmojiPicker) return undefined;
+
+    const handleOutsideClick = (event) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target)) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [showEmojiPicker]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -88,6 +104,10 @@ export const MessageInput = ({ workspaceId, onSendMessage, onTypingStart, onTypi
     if (onTypingStop) onTypingStop();
   };
 
+  const insertEmoji = (emoji) => {
+    setContent((previous) => `${previous}${emoji}`);
+  };
+
   return (
     <div
       onDragOver={handleDragOver}
@@ -140,6 +160,22 @@ export const MessageInput = ({ workspaceId, onSendMessage, onTypingStart, onTypi
         >
           <Paperclip className="w-4 h-4" />
         </button>
+        <div ref={emojiPickerRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setShowEmojiPicker((previous) => !previous)}
+            title="Add Emoji"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+          >
+            <Smile className="w-4 h-4" />
+          </button>
+          {showEmojiPicker && (
+            <EmojiReactionPicker
+              onSelect={insertEmoji}
+              onClose={() => setShowEmojiPicker(false)}
+            />
+          )}
+        </div>
         <input
           type="file"
           ref={fileInputRef}

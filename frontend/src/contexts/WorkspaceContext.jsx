@@ -62,6 +62,19 @@ export const WorkspaceProvider = ({ children }) => {
     };
   }, [currentChannel?.id, currentConversation?.id]);
 
+  useEffect(() => {
+    const handlePersonalConversation = (data) => {
+      if (data?.workspace_id !== currentWorkspace?.id || !data.conversation) return;
+      setConversations((previous) => (
+        previous.some((conversation) => conversation.id === data.conversation.id)
+          ? previous
+          : [data.conversation, ...previous]
+      ));
+    };
+    socketClient.on('conversation_new', handlePersonalConversation);
+    return () => socketClient.off('conversation_new', handlePersonalConversation);
+  }, [currentWorkspace?.id]);
+
   // Load all workspaces on login
   const loadWorkspaces = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -113,6 +126,11 @@ export const WorkspaceProvider = ({ children }) => {
       const general = (ws.channels || []).find((c) => c.name === 'general') || (ws.channels || [])[0];
       if (general && switchView) {
         selectChannel(general);
+      } else if (switchView) {
+        setCurrentChannel(null);
+        setCurrentConversation(null);
+        setCurrentProject(null);
+        setViewMode('chat');
       }
     } catch (err) {
       showToast('Could not load workspace details: ' + err.message, 'error');
@@ -243,6 +261,15 @@ export const WorkspaceProvider = ({ children }) => {
     }
   };
 
+  const clearActiveView = () => {
+    if (currentChannel) socketClient.leaveRoom(`channel_${currentChannel.id}`);
+    if (currentConversation) socketClient.leaveRoom(`conversation_${currentConversation.id}`);
+    if (currentProject) socketClient.leaveRoom(`project_${currentProject.id}`);
+    setCurrentChannel(null);
+    setCurrentConversation(null);
+    setCurrentProject(null);
+  };
+
   const refreshCurrentWorkspace = async () => {
     if (currentWorkspace) {
       await selectWorkspace(currentWorkspace.id, false);
@@ -269,6 +296,34 @@ export const WorkspaceProvider = ({ children }) => {
     return newProj;
   };
 
+  const deleteProject = async (projectId) => {
+    if (!currentWorkspace) return;
+    await projectService.deleteProject(currentWorkspace.id, projectId);
+    setProjects((prev) => prev.filter((project) => project.id !== projectId));
+    if (currentProject?.id === projectId) {
+      setCurrentProject(null);
+      setViewMode('chat');
+    }
+    showToast('Project deleted successfully', 'success');
+  };
+
+  const deleteConversation = async (conversationId) => {
+    if (!currentWorkspace) return;
+    await messageService.deleteConversation(currentWorkspace.id, conversationId);
+    if (currentConversation?.id === conversationId) {
+      socketClient.leaveRoom(`conversation_${conversationId}`);
+      setCurrentConversation(null);
+      setViewMode('chat');
+    }
+    setConversations((prev) => prev.filter((conversation) => conversation.id !== conversationId));
+    setUnreadCounts((prev) => {
+      const next = { ...prev.conversations };
+      delete next[conversationId];
+      return { ...prev, conversations: next };
+    });
+    showToast('Chat deleted successfully', 'success');
+  };
+
   return (
     <WorkspaceContext.Provider
       value={{
@@ -287,10 +342,13 @@ export const WorkspaceProvider = ({ children }) => {
         selectChannel,
         selectConversation,
         selectProject,
+        clearActiveView,
         setViewMode,
         refreshCurrentWorkspace,
         createChannel,
         createProject,
+        deleteProject,
+        deleteConversation,
         setConversations,
         unreadCounts,
       }}

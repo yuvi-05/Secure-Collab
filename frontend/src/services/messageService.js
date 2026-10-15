@@ -10,8 +10,10 @@ export const messageService = {
   async editMessage(workspaceId, messageId, content) {
     return api.put(`/workspaces/${workspaceId}/messages/${messageId}`, { content });
   },
-  async deleteMessage(workspaceId, messageId) {
-    return api.delete(`/workspaces/${workspaceId}/messages/${messageId}`);
+  async deleteMessage(workspaceId, messageId, deleteForEveryone = false) {
+    return api.delete(
+      `/workspaces/${workspaceId}/messages/${messageId}?delete_for_everyone=${deleteForEveryone ? 'true' : 'false'}`
+    );
   },
   async toggleReaction(workspaceId, messageId, emoji) {
     return api.post(`/workspaces/${workspaceId}/messages/${messageId}/reactions`, { emoji });
@@ -21,6 +23,9 @@ export const messageService = {
   },
   async startConversation(workspaceId, data) {
     return api.post(`/workspaces/${workspaceId}/conversations`, data);
+  },
+  async deleteConversation(workspaceId, conversationId) {
+    return api.delete(`/workspaces/${workspaceId}/conversations/${conversationId}`);
   },
   async searchMessages(workspaceId, query) {
     return api.get(`/workspaces/${workspaceId}/messages/search?q=${encodeURIComponent(query || '')}`);

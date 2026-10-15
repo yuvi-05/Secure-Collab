@@ -95,6 +95,8 @@ export const AuthProvider = ({ children }) => {
     return updated;
   };
 
+  const changePassword = async (data) => authService.changePassword(data);
+
   return (
     <AuthContext.Provider
       value={{
@@ -107,6 +109,7 @@ export const AuthProvider = ({ children }) => {
         register,
         logout,
         updateProfile,
+        changePassword,
       }}
     >
       {children}

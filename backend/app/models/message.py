@@ -10,10 +10,12 @@ class Message(db.Model):
     conversation_id = db.Column(db.Integer, db.ForeignKey("conversations.id"), nullable=True, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     parent_id = db.Column(db.Integer, db.ForeignKey("messages.id"), nullable=True, index=True)
+    source_message_id = db.Column(db.Integer, nullable=True, index=True)
     content = db.Column(db.Text, nullable=False)
     is_edited = db.Column(db.Boolean, default=False)
     edited_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, index=True)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
 
     # Relationships
     user = db.relationship("User", back_populates="messages")
@@ -41,6 +43,12 @@ class Message(db.Model):
 
         reply_count = self.replies.count() if hasattr(self, 'replies') else 0
 
+        expires_at = (
+            f"{self.expires_at.isoformat()}Z"
+            if self.expires_at
+            else None
+        )
+
         return {
             "id": self.id,
             "workspace_id": self.workspace_id,
@@ -55,7 +63,8 @@ class Message(db.Model):
             "reply_count": reply_count,
             "reactions": list(reaction_counts.values()),
             "attachments": [a.to_dict() for a in self.attachments],
-            "created_at": self.created_at.isoformat() if self.created_at else None
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "expires_at": expires_at,
         }
 
 

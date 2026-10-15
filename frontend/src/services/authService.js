@@ -16,6 +16,9 @@ export const authService = {
   async updateProfile(data) {
     return api.put('/auth/profile', data);
   },
+  async changePassword(data) {
+    return api.put('/auth/password', data);
+  },
   async searchUsers(query) {
     return api.get(`/auth/users/search?q=${encodeURIComponent(query || '')}`);
   },
