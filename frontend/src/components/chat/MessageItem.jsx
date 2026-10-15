@@ -17,6 +17,7 @@ export const MessageItem = ({
   onOpenThread,
   onEdit,
   onDelete,
+  readOnly = false,
 }) => {
   const [showPicker, setShowPicker] = useState(false);
   const [showActions, setShowActions] = useState(false);
@@ -148,6 +149,7 @@ export const MessageItem = ({
               <button
                 key={idx}
                 onClick={() => onReact(message.id, rxn.emoji)}
+                disabled={readOnly}
                 className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors border ${
                   rxn.reacted_by_me
                     ? 'bg-indigo-900/40 border-indigo-600 text-indigo-200'
@@ -177,7 +179,7 @@ export const MessageItem = ({
       </div>
 
       {/* Floating Action Menu Bar on Hover */}
-      {showActions && (
+      {showActions && !readOnly && (
         <div className="absolute top-1 right-4 flex items-center bg-slate-800 border border-slate-700 rounded-xl shadow-lg p-0.5 text-slate-400 z-10 animate-in fade-in zoom-in-95">
           {/* Reaction Picker Button */}
           <div className="relative">

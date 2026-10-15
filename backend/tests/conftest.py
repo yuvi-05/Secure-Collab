@@ -7,6 +7,8 @@ from app.models import User, Workspace, WorkspaceMember, Channel, ChannelMember,
 @pytest.fixture
 def app():
     app = create_app(TestConfig)
+    app.config["SUPER_ADMIN_EMAIL"] = "platform-admin@example.test"
+    app.config["SUPER_ADMIN_PASSWORD"] = "test-only-platform-admin-password"
     with app.app_context():
         db.create_all()
         yield app
@@ -64,3 +66,25 @@ def second_auth_headers(client, second_user):
     })
     token = res.get_json()["data"]["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def super_admin_headers(client):
+    response = client.post("/api/auth/super-admin/login", json={
+        "email": "platform-admin@example.test",
+        "password": "test-only-platform-admin-password"
+    })
+    assert response.status_code == 200
+    token = response.get_json()["data"]["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def create_workspace(client, super_admin_headers, test_user):
+    def create(name, description=""):
+        return client.post("/api/workspaces", json={
+            "name": name,
+            "description": description,
+            "owner_id": test_user,
+        }, headers=super_admin_headers)
+    return create

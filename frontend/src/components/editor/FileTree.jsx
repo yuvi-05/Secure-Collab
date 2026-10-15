@@ -21,6 +21,7 @@ export const FileTree = ({
   onCreateFile,
   onRenameFile,
   onDeleteFile,
+  readOnly = false,
 }) => {
   const [collapsedFolders, setCollapsedFolders] = useState(new Set());
   const [newItemModal, setNewItemModal] = useState({ isOpen: false, isDir: false });
@@ -88,7 +89,7 @@ export const FileTree = ({
       {/* File Tree Header */}
       <div className="h-10 px-3 border-b border-slate-800 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-400">
         <span>Files</span>
-        <div className="flex items-center gap-1">
+        {!readOnly && <div className="flex items-center gap-1">
           <button
             onClick={() => setNewItemModal({ isOpen: true, isDir: false })}
             title="New File"
@@ -103,7 +104,7 @@ export const FileTree = ({
           >
             <FolderPlus className="w-3.5 h-3.5" />
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* Creation Input Field */}
@@ -168,7 +169,7 @@ export const FileTree = ({
                 </div>
 
                 {/* File Action Hover Icons */}
-                <div className="hidden group-hover:flex items-center gap-1 shrink-0">
+                {!readOnly && <div className="hidden group-hover:flex items-center gap-1 shrink-0">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -192,7 +193,7 @@ export const FileTree = ({
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
-                </div>
+                </div>}
               </div>
             );
           })

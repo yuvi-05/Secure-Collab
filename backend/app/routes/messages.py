@@ -6,6 +6,7 @@ from app.extensions import db, socketio
 from app.models import Message, MessageReaction, Channel, Conversation, ConversationMember, WorkspaceMember, User, Notification, FileAttachment
 from app.utils.response import success_response, error_response
 from app.middleware.auth_middleware import get_current_user, workspace_member_required
+from app.models.workspace import get_effective_workspace_role
 
 messages_bp = Blueprint("messages", __name__, url_prefix="/api/workspaces/<int:workspace_id>")
 
@@ -182,7 +183,9 @@ def delete_message(workspace_id, message_id):
         return error_response("Message not found", 404)
 
     ws_membership = WorkspaceMember.query.filter_by(workspace_id=workspace_id, user_id=current_user.id).first()
-    if message.user_id != current_user.id and ws_membership.role not in ["owner", "admin"]:
+    if message.user_id != current_user.id and get_effective_workspace_role(
+        workspace_id, current_user.id
+    ) != "owner":
         return error_response("Permission denied to delete this message", 403)
 
     room = f"channel_{message.channel_id}" if message.channel_id else f"conversation_{message.conversation_id}"

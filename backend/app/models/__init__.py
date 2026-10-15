@@ -1,6 +1,9 @@
 from app.extensions import db
 from app.models.user import User
-from app.models.workspace import Workspace, WorkspaceMember, Invitation
+from app.models.workspace import (
+    Workspace, WorkspaceMember, Invitation, EmergencyAccessRequest,
+    WorkspaceSetting, WorkspaceAuditLog, EmergencyAccessProject
+)
 from app.models.channel import Channel, ChannelMember
 from app.models.conversation import Conversation, ConversationMember
 from app.models.message import Message, MessageReaction
@@ -16,6 +19,7 @@ __all__ = [
     "Workspace",
     "WorkspaceMember",
     "Invitation",
+    "EmergencyAccessRequest",
     "Channel",
     "ChannelMember",
     "Conversation",
@@ -29,5 +33,8 @@ __all__ = [
     "CollaborativeDocument",
     "Notification",
     "AIConversation",
-    "AIMessage"
+    "AIMessage",
+    "WorkspaceSetting",
+    "WorkspaceAuditLog",
+    "EmergencyAccessProject",
 ]

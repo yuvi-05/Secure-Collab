@@ -1,17 +1,15 @@
-import React, { useState } from 'react';
-import { Plus, Settings, Sun, Moon, LogOut, User as UserIcon } from 'lucide-react';
+import React from 'react';
+import { Sun, Moon } from 'lucide-react';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import Modal from '../common/Modal';
 
-export const WorkspaceSwitcher = ({ onOpenCreateWorkspace, onOpenProfile }) => {
+export const WorkspaceSwitcher = ({ onOpenProfile, onToggleNavigation, navigationVisible }) => {
   const { workspaces, currentWorkspace, selectWorkspace } = useWorkspace();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
-
   return (
-    <aside className="w-16 h-full bg-slate-900 dark:bg-slate-950 border-r border-slate-800 flex flex-col items-center py-3 gap-3 shrink-0 select-none z-20">
+    <aside className="relative h-full w-16 shrink-0 border-r border-slate-800 bg-slate-900 py-3 flex flex-col items-center gap-3 select-none dark:bg-slate-950">
       {/* Workspaces List */}
       <div className="flex-1 w-full flex flex-col items-center gap-2.5 overflow-y-auto no-scrollbar py-1">
         {workspaces.map((ws) => {
@@ -19,8 +17,12 @@ export const WorkspaceSwitcher = ({ onOpenCreateWorkspace, onOpenProfile }) => {
           return (
             <button
               key={ws.id}
-              onClick={() => selectWorkspace(ws.id)}
-              title={ws.name}
+              aria-expanded={isActive ? navigationVisible : undefined}
+              onClick={() => {
+                if (isActive) onToggleNavigation();
+                else selectWorkspace(ws.id);
+              }}
+              title={isActive ? `${ws.name} (hide navigation)` : ws.name}
               className={`relative group w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-sm transition-all duration-200 ${
                 isActive
                   ? 'bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-600/30'
@@ -36,14 +38,6 @@ export const WorkspaceSwitcher = ({ onOpenCreateWorkspace, onOpenProfile }) => {
           );
         })}
 
-        {/* Add Workspace Button */}
-        <button
-          onClick={onOpenCreateWorkspace}
-          title="Create New Workspace"
-          className="w-11 h-11 rounded-2xl border border-dashed border-slate-700 text-slate-400 hover:border-indigo-500 hover:text-indigo-400 hover:rounded-xl flex items-center justify-center transition-all"
-        >
-          <Plus className="w-5 h-5" />
-        </button>
       </div>
 
       {/* Bottom utility controls */}

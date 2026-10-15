@@ -46,6 +46,8 @@ class Config:
     OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
     AI_MODEL = os.getenv("AI_MODEL", "gpt-4o-mini")
     AI_PROVIDER = os.getenv("AI_PROVIDER", "openai")  # openai, openrouter, mock
+    SUPER_ADMIN_EMAIL = os.getenv("SUPER_ADMIN_EMAIL", "").strip().lower()
+    SUPER_ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASSWORD", "")
 
     # CORS
     CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")

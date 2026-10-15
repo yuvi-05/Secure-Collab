@@ -8,7 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import socketClient from '../../socket/socketClient';
 
-export const ChatArea = ({ workspaceId, channel, conversation }) => {
+export const ChatArea = ({ workspaceId, channel, conversation, readOnly = false }) => {
   const { user } = useAuth();
   const { showToast } = useToast();
 
@@ -222,6 +222,7 @@ export const ChatArea = ({ workspaceId, channel, conversation }) => {
                 onOpenThread={(msg) => setActiveThread(msg)}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                readOnly={readOnly}
               />
             ))
           )}
@@ -237,13 +238,15 @@ export const ChatArea = ({ workspaceId, channel, conversation }) => {
         </div>
 
         {/* Message Input */}
-        <MessageInput
-          workspaceId={workspaceId}
-          onSendMessage={handleSendMessage}
-          onTypingStart={handleTypingStart}
-          onTypingStop={handleTypingStop}
-          placeholder={channel ? `Message #${channel.name}` : 'Send a direct message...'}
-        />
+        {!readOnly && (
+          <MessageInput
+            workspaceId={workspaceId}
+            onSendMessage={handleSendMessage}
+            onTypingStart={handleTypingStart}
+            onTypingStop={handleTypingStop}
+            placeholder={channel ? `Message #${channel.name}` : 'Send a direct message...'}
+          />
+        )}
       </div>
 
       {/* Thread Drawer (if thread is selected) */}
@@ -254,6 +257,7 @@ export const ChatArea = ({ workspaceId, channel, conversation }) => {
           currentUserId={user?.id}
           onClose={() => setActiveThread(null)}
           onReact={handleReact}
+          readOnly={readOnly}
         />
       )}
     </div>

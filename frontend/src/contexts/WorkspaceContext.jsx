@@ -75,7 +75,7 @@ export const WorkspaceProvider = ({ children }) => {
       const savedId = localStorage.getItem('active_workspace_id');
       const target = list.find((w) => String(w.id) === savedId) || list[0];
       if (target) {
-        selectWorkspace(target.id, false);
+        selectWorkspace(target.id);
       } else {
         setCurrentWorkspace(null);
       }
@@ -118,6 +118,77 @@ export const WorkspaceProvider = ({ children }) => {
       showToast('Could not load workspace details: ' + err.message, 'error');
     }
   };
+
+  const activeWorkspaceId = currentWorkspace?.id;
+  const emergencyAccessExpiresAt = currentWorkspace?.my_emergency_access?.expires_at;
+  const activeChannelId = currentChannel?.id;
+
+  useEffect(() => {
+    if (!activeWorkspaceId) return undefined;
+
+    let active = true;
+    let expiryTimer;
+    const refreshWorkspaceDetails = async () => {
+      try {
+        const res = await workspaceService.getWorkspace(activeWorkspaceId);
+        if (!active) return;
+        const ws = res.data.workspace;
+        const projectResponse = await projectService.listProjects(activeWorkspaceId);
+        if (!active) return;
+        const updatedProjects = projectResponse.data?.projects || [];
+        const updatedChannels = ws.channels || [];
+        setCurrentWorkspace(ws);
+        setChannels(updatedChannels);
+        setProjects(updatedProjects);
+
+        if (currentProject && !updatedProjects.some((project) => project.id === currentProject.id)) {
+          socketClient.leaveRoom(`project_${currentProject.id}`);
+          setCurrentProject(null);
+          setViewMode('chat');
+        }
+
+        if (activeChannelId && !updatedChannels.some((channel) => channel.id === activeChannelId)) {
+          socketClient.leaveRoom(`channel_${activeChannelId}`);
+          const general = updatedChannels.find((channel) => channel.name === 'general') || updatedChannels[0] || null;
+          setCurrentChannel(general);
+          setCurrentConversation(null);
+          setCurrentProject(null);
+          setViewMode('chat');
+          if (general) socketClient.joinRoom(`channel_${general.id}`);
+        }
+      } catch (err) {
+        showToast('Could not refresh workspace access: ' + err.message, 'error');
+      }
+    };
+
+    const handleEmergencyAccessChanged = (data) => {
+      if (data?.workspace_id === activeWorkspaceId) {
+        refreshWorkspaceDetails();
+      }
+    };
+    socketClient.on('emergency_access_changed', handleEmergencyAccessChanged);
+
+    if (emergencyAccessExpiresAt) {
+      const refreshAtExpiry = () => {
+        const remaining = new Date(emergencyAccessExpiresAt).getTime() - Date.now();
+        if (remaining <= 0) {
+          refreshWorkspaceDetails();
+          return;
+        }
+        expiryTimer = setTimeout(refreshAtExpiry, Math.min(remaining, 2147483647));
+      };
+      expiryTimer = setTimeout(
+        refreshAtExpiry,
+        Math.min(Math.max(new Date(emergencyAccessExpiresAt).getTime() - Date.now(), 0), 2147483647)
+      );
+    }
+
+    return () => {
+      active = false;
+      clearTimeout(expiryTimer);
+      socketClient.off('emergency_access_changed', handleEmergencyAccessChanged);
+    };
+  }, [activeWorkspaceId, emergencyAccessExpiresAt, activeChannelId, currentProject, showToast]);
 
   const selectChannel = (channel) => {
     if (currentChannel) {

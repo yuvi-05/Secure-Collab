@@ -1,8 +1,8 @@
 import io
 
-def test_messaging_and_reactions(client, auth_headers):
+def test_messaging_and_reactions(client, auth_headers, create_workspace):
     # 1. Create workspace
-    res_ws = client.post("/api/workspaces", json={"name": "Chat Space"}, headers=auth_headers)
+    res_ws = create_workspace("Chat Space")
     ws_id = res_ws.get_json()["data"]["workspace"]["id"]
 
     # 2. Get general channel
@@ -38,9 +38,9 @@ def test_messaging_and_reactions(client, auth_headers):
     assert res_thread.status_code == 200
     assert len(res_thread.get_json()["data"]["messages"]) == 1
 
-def test_file_upload_and_download(client, auth_headers):
+def test_file_upload_and_download(client, auth_headers, create_workspace):
     # Create workspace
-    res_ws = client.post("/api/workspaces", json={"name": "File Space"}, headers=auth_headers)
+    res_ws = create_workspace("File Space")
     ws_id = res_ws.get_json()["data"]["workspace"]["id"]
 
     # Upload test file

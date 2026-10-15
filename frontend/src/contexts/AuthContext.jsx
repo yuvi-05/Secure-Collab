@@ -52,6 +52,17 @@ export const AuthProvider = ({ children }) => {
     return userData;
   };
 
+  const superAdminLogin = async (email, password) => {
+    const res = await authService.superAdminLogin({ email, password });
+    const { user: userData, access_token } = res.data;
+    setUser(userData);
+    setToken(access_token);
+    localStorage.setItem('token', access_token);
+    localStorage.setItem('user', JSON.stringify(userData));
+    socketClient.connect(userData.id);
+    return userData;
+  };
+
   const register = async (userData) => {
     const res = await authService.register(userData);
     const { user: newUser, access_token } = res.data;
@@ -92,6 +103,7 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated: !!token && !!user,
         loading,
         login,
+        superAdminLogin,
         register,
         logout,
         updateProfile,

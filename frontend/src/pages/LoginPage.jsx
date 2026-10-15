@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShieldCheck, LogIn, Sparkles, ArrowRight } from 'lucide-react';
+import { ShieldCheck, LogIn } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 
 export const LoginPage = () => {
-  const { login } = useAuth();
+  const { login, superAdminLogin } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [adminLogin, setAdminLogin] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,9 +20,10 @@ export const LoginPage = () => {
 
     setLoading(true);
     try {
-      await login(loginId, password);
+      if (adminLogin) await superAdminLogin(loginId, password);
+      else await login(loginId, password);
       showToast('Signed in successfully!', 'success');
-      navigate('/');
+      navigate(adminLogin ? '/super-admin' : '/');
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
@@ -53,7 +55,9 @@ export const LoginPage = () => {
           <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/40 mb-3">
             <ShieldCheck className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Secure-Collab</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-white">
+            {adminLogin ? 'Super Admin' : 'Secure-Collab'}
+          </h1>
           <p className="text-xs text-slate-400 mt-1">
             Real-Time Team Collaboration & AI Coding Platform
           </p>
@@ -63,14 +67,14 @@ export const LoginPage = () => {
         <form onSubmit={handleSubmit} className="space-y-4 relative">
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              Email or Username
+              {adminLogin ? 'Super Admin Email' : 'Email or Username'}
             </label>
             <input
               type="text"
               required
               value={loginId}
               onChange={(e) => setLoginId(e.target.value)}
-              placeholder="alice@collab.io or alice"
+              placeholder={adminLogin ? 'admin@example.com' : 'alice@collab.io or alice'}
               className="w-full px-3.5 py-2.5 text-sm bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
             />
           </div>
@@ -95,12 +99,12 @@ export const LoginPage = () => {
             className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <LogIn className="w-4 h-4" />
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Signing in...' : adminLogin ? 'Sign In as Super Admin' : 'Sign In'}
           </button>
         </form>
 
         {/* Demo Fast Logins */}
-        <div className="mt-6 pt-6 border-t border-slate-800/80">
+        {!adminLogin && <div className="mt-6 pt-6 border-t border-slate-800/80">
           <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block text-center mb-2.5">
             Instant Demo Logins
           </span>
@@ -117,17 +121,29 @@ export const LoginPage = () => {
               disabled={loading}
               className="p-2.5 rounded-xl bg-slate-850 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-300 hover:text-white flex items-center justify-center gap-1.5 transition-colors"
             >
-              <span>👨‍💻 Bob (Admin)</span>
+              <span>👨‍💻 Bob (Project Manager)</span>
             </button>
           </div>
-        </div>
+        </div>}
 
-        <p className="mt-6 text-center text-xs text-slate-400">
+        <button
+          type="button"
+          onClick={() => {
+            setAdminLogin((value) => !value);
+            setLoginId('');
+            setPassword('');
+          }}
+          className="mt-5 w-full text-center text-xs font-semibold text-indigo-400 hover:text-indigo-300"
+        >
+          {adminLogin ? 'Back to regular sign in' : 'Super Admin sign in'}
+        </button>
+
+        {!adminLogin && <p className="mt-6 text-center text-xs text-slate-400">
           Don't have an account?{' '}
           <Link to="/register" className="text-indigo-400 hover:text-indigo-300 font-semibold">
             Create an account
           </Link>
-        </p>
+        </p>}
       </div>
     </div>
   );

@@ -1,12 +1,20 @@
 import datetime
+import json
+from sqlalchemy import or_
 from flask import Blueprint, request
 from flask_jwt_extended import jwt_required
 from app.extensions import db, socketio
-from app.models import CodingProject, ProjectMember, ProjectFile, CollaborativeDocument, WorkspaceMember
+from app.models import (
+    CodingProject, ProjectMember, ProjectFile, CollaborativeDocument, WorkspaceMember,
+    WorkspaceAuditLog, EmergencyAccessProject, EmergencyAccessRequest
+)
 from app.services.yjs_service import YjsService
 from app.utils.response import success_response, error_response
 from app.utils.security import sanitize_filepath, detect_language
-from app.middleware.auth_middleware import get_current_user, workspace_member_required, project_access_required
+from app.middleware.auth_middleware import (
+    get_current_user, workspace_member_required, project_access_required,
+    project_manager_required
+)
 
 projects_bp = Blueprint("projects", __name__, url_prefix="/api/workspaces/<int:workspace_id>/projects")
 
@@ -14,13 +22,32 @@ projects_bp = Blueprint("projects", __name__, url_prefix="/api/workspaces/<int:w
 @jwt_required()
 @workspace_member_required()
 def list_projects(workspace_id):
-    projects = CodingProject.query.filter_by(workspace_id=workspace_id).order_by(CodingProject.updated_at.desc()).all()
+    from app.models.workspace import get_effective_workspace_role
+    role = get_effective_workspace_role(workspace_id, get_current_user().id)
+    query = CodingProject.query.filter_by(workspace_id=workspace_id, is_active=True)
+    if role not in ["owner", "project_manager"]:
+        assigned_project_ids = db.session.query(ProjectMember.project_id).filter_by(
+            user_id=get_current_user().id
+        )
+        emergency_project_ids = db.session.query(EmergencyAccessProject.project_id).join(
+            EmergencyAccessRequest
+        ).filter(
+            EmergencyAccessRequest.workspace_id == workspace_id,
+            EmergencyAccessRequest.requester_id == get_current_user().id,
+            EmergencyAccessRequest.status == "approved",
+            EmergencyAccessRequest.expires_at > datetime.datetime.utcnow(),
+            EmergencyAccessRequest.revoked_at.is_(None)
+        )
+        query = query.filter(
+            or_(CodingProject.id.in_(assigned_project_ids), CodingProject.id.in_(emergency_project_ids))
+        )
+    projects = query.order_by(CodingProject.updated_at.desc()).all()
     return success_response({"projects": [p.to_dict() for p in projects]})
 
 
 @projects_bp.route("", methods=["POST"])
 @jwt_required()
-@workspace_member_required()
+@workspace_member_required(roles=["owner", "project_manager"])
 def create_project(workspace_id):
     current_user = get_current_user()
     data = request.get_json() or {}
@@ -39,14 +66,6 @@ def create_project(workspace_id):
     db.session.add(project)
     db.session.flush()
 
-    # Add creator as project admin
-    member = ProjectMember(
-        project_id=project.id,
-        user_id=current_user.id,
-        role="admin"
-    )
-    db.session.add(member)
-
     # Initialize a starter file (e.g., main.py or README.md)
     initial_file = ProjectFile(
         project_id=project.id,
@@ -58,6 +77,14 @@ def create_project(workspace_id):
         updated_by=current_user.id
     )
     db.session.add(initial_file)
+    db.session.add(WorkspaceAuditLog(
+        workspace_id=workspace_id,
+        actor_id=current_user.id,
+        action="project.created",
+        target_type="project",
+        target_id=str(project.id),
+        details=json.dumps({"name": project.name})
+    ))
 
     db.session.commit()
     return success_response({"project": project.to_dict()}, "Project created successfully", 201)
@@ -78,6 +105,94 @@ def get_project(workspace_id, project_id):
     res["files"] = [f.to_dict(include_content=False) for f in files]
     res["members"] = [m.to_dict() for m in members]
     return success_response({"project": res})
+
+
+@projects_bp.route("/<int:project_id>", methods=["PUT"])
+@jwt_required()
+@project_manager_required()
+def update_project(workspace_id, project_id):
+    project = CodingProject.query.filter_by(id=project_id, workspace_id=workspace_id).first()
+    if not project:
+        return error_response("Project not found", 404)
+    data = request.get_json() or {}
+    if set(data) - {"name", "description"}:
+        return error_response("Unsupported project setting", 400)
+    if "name" in data:
+        if not isinstance(data["name"], str) or not data["name"].strip():
+            return error_response("Project name is required", 400)
+        project.name = data["name"].strip()
+    if "description" in data:
+        if not isinstance(data["description"], str):
+            return error_response("Project description must be text", 400)
+        project.description = data["description"].strip()
+    db.session.commit()
+    return success_response({"project": project.to_dict()}, "Project updated")
+
+
+@projects_bp.route("/<int:project_id>/members", methods=["POST"])
+@jwt_required()
+@project_manager_required()
+def add_project_member(workspace_id, project_id):
+    project = CodingProject.query.filter_by(id=project_id, workspace_id=workspace_id).first()
+    if not project:
+        return error_response("Project not found", 404)
+
+    data = request.get_json() or {}
+    user_id = data.get("user_id")
+    if isinstance(user_id, bool) or not isinstance(user_id, int):
+        return error_response("A valid user ID is required", 400)
+    member = WorkspaceMember.query.filter_by(workspace_id=workspace_id, user_id=user_id).first()
+    if not member or not member.is_active:
+        return error_response("User is not a member of this workspace", 404)
+    if not member.user or not member.user.is_active:
+        return error_response("Inactive accounts cannot be assigned to projects", 400)
+    if member.role not in ["developer", "team_member", "guest"]:
+        return error_response("Only developers, team members, or guests can be assigned to projects", 400)
+    existing = ProjectMember.query.filter_by(project_id=project_id, user_id=user_id).first()
+    if existing:
+        return error_response("User is already assigned to this project", 409)
+
+    project_member = ProjectMember(
+        project_id=project_id,
+        user_id=user_id,
+        role="editor" if member.role == "developer" else "viewer"
+    )
+    db.session.add(project_member)
+    db.session.add(WorkspaceAuditLog(
+        workspace_id=workspace_id,
+        actor_id=get_current_user().id,
+        action="project.member_assigned",
+        target_type="project",
+        target_id=str(project_id),
+        details=json.dumps({"user_id": user_id})
+    ))
+    db.session.commit()
+    return success_response({"member": project_member.to_dict()}, "Project member assigned", 201)
+
+
+@projects_bp.route("/<int:project_id>/members/<int:user_id>", methods=["DELETE"])
+@jwt_required()
+@project_manager_required()
+def remove_project_member(workspace_id, project_id, user_id):
+    project = CodingProject.query.filter_by(id=project_id, workspace_id=workspace_id).first()
+    if not project:
+        return error_response("Project not found", 404)
+    project_member = ProjectMember.query.filter_by(project_id=project_id, user_id=user_id).first()
+    if not project_member:
+        return error_response("Project member not found", 404)
+    if project.created_by == user_id:
+        return error_response("The project creator cannot be removed from its project", 400)
+    db.session.add(WorkspaceAuditLog(
+        workspace_id=workspace_id,
+        actor_id=get_current_user().id,
+        action="project.member_removed",
+        target_type="project",
+        target_id=str(project_id),
+        details=json.dumps({"user_id": user_id})
+    ))
+    db.session.delete(project_member)
+    db.session.commit()
+    return success_response(None, "Project member removed")
 
 
 @projects_bp.route("/<int:project_id>/files", methods=["GET"])

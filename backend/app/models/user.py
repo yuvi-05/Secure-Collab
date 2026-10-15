@@ -15,6 +15,8 @@ class User(db.Model):
     bio = db.Column(db.String(255), nullable=True)
     is_online = db.Column(db.Boolean, default=False)
     last_seen = db.Column(db.DateTime, default=utc_now)
+    is_active = db.Column(db.Boolean, nullable=False, default=True, index=True)
+    is_super_admin = db.Column(db.Boolean, nullable=False, default=False, index=True)
     created_at = db.Column(db.DateTime, default=utc_now)
     updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
 
@@ -38,6 +40,7 @@ class User(db.Model):
             "avatar_url": self.avatar_url or f"https://api.dicebear.com/7.x/identicon/svg?seed={self.username}",
             "bio": self.bio or "",
             "is_online": self.is_online,
+            "is_super_admin": self.is_super_admin,
             "last_seen": self.last_seen.isoformat() if self.last_seen else None,
             "created_at": self.created_at.isoformat() if self.created_at else None
         }

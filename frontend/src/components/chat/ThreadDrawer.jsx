@@ -11,6 +11,7 @@ export const ThreadDrawer = ({
   currentUserId,
   onClose,
   onReact,
+  readOnly = false,
 }) => {
   const [replies, setReplies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -98,6 +99,7 @@ export const ThreadDrawer = ({
           onOpenThread={() => {}}
           onEdit={() => {}}
           onDelete={() => {}}
+          readOnly={readOnly}
         />
       </div>
 
@@ -119,6 +121,7 @@ export const ThreadDrawer = ({
               onOpenThread={() => {}}
               onEdit={() => {}}
               onDelete={() => {}}
+              readOnly={readOnly}
             />
           ))
         )}
@@ -126,11 +129,13 @@ export const ThreadDrawer = ({
       </div>
 
       {/* Reply Input */}
-      <MessageInput
-        workspaceId={workspaceId}
-        onSendMessage={handleSendReply}
-        placeholder="Reply in thread..."
-      />
+      {!readOnly && (
+        <MessageInput
+          workspaceId={workspaceId}
+          onSendMessage={handleSendReply}
+          placeholder="Reply in thread..."
+        />
+      )}
     </aside>
   );
 };

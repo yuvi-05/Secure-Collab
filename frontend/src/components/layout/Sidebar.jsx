@@ -9,7 +9,7 @@ import {
   ChevronDown,
   UserPlus,
   Settings,
-  MessageSquare,
+  ShieldCheck,
 } from 'lucide-react';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -51,21 +51,26 @@ export const Sidebar = ({
     );
   }
 
-  const isOwnerOrAdmin = currentWorkspace.my_role === 'owner' || currentWorkspace.my_role === 'admin';
+  const canInviteMembers = currentWorkspace.my_role === 'owner';
+  const canCreateProject = ['owner', 'project_manager'].includes(currentWorkspace.my_role);
+  const canCreateChannel = currentWorkspace.my_role === 'owner';
+  const isGuest = currentWorkspace.my_role === 'guest';
 
   return (
     <aside className="w-64 h-full bg-slate-900/95 dark:bg-slate-900 border-r border-slate-800 flex flex-col select-none z-10 shrink-0">
       {/* Workspace Header Dropdown */}
       <div className="relative h-14 px-4 border-b border-slate-800 flex items-center justify-between">
         <button
-          onClick={() => setShowWsMenu(!showWsMenu)}
+          onClick={() => canInviteMembers && setShowWsMenu(!showWsMenu)}
           className="flex items-center gap-2 font-bold text-slate-100 hover:text-white truncate text-left flex-1"
         >
           <span className="truncate">{currentWorkspace.name}</span>
-          <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showWsMenu ? 'rotate-180' : ''}`} />
+          {canInviteMembers && (
+            <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showWsMenu ? 'rotate-180' : ''}`} />
+          )}
         </button>
 
-        {showWsMenu && (
+        {showWsMenu && canInviteMembers && (
           <div
             className="absolute top-14 left-2 right-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-1.5 z-30 flex flex-col gap-1 text-sm animate-in fade-in zoom-in-95"
             onClick={() => setShowWsMenu(false)}
@@ -77,15 +82,13 @@ export const Sidebar = ({
               <UserPlus className="w-4 h-4 text-indigo-400" />
               Invite Teammates
             </button>
-            {isOwnerOrAdmin && (
-              <button
-                onClick={onOpenWorkspaceSettings}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-200 hover:bg-slate-700/80 hover:text-white text-left transition-colors"
-              >
-                <Settings className="w-4 h-4 text-slate-400" />
-                Workspace Settings
-              </button>
-            )}
+            <button
+              onClick={onOpenWorkspaceSettings}
+              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-200 hover:bg-slate-700/80 hover:text-white text-left transition-colors"
+            >
+              <Settings className="w-4 h-4 text-slate-400" />
+              Workspace Settings
+            </button>
           </div>
         )}
       </div>
@@ -94,6 +97,19 @@ export const Sidebar = ({
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-6 text-sm text-slate-300">
         {/* Quick Nav Tools */}
         <div className="space-y-0.5">
+          {currentWorkspace.my_role === 'owner' && (
+            <button
+              onClick={() => setViewMode('admin')}
+              className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg transition-colors ${
+                viewMode === 'admin'
+                  ? 'bg-indigo-600 text-white font-medium'
+                  : 'hover:bg-slate-800/80 text-slate-300'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>Workspace Administration</span>
+            </button>
+          )}
           <button
             onClick={() => setViewMode('files')}
             className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg transition-colors ${
@@ -122,13 +138,13 @@ export const Sidebar = ({
         <div>
           <div className="flex items-center justify-between px-3 mb-1.5 text-xs font-semibold tracking-wider text-slate-400 uppercase">
             <span>Channels</span>
-            <button
+            {canCreateChannel && <button
               onClick={onOpenCreateChannel}
               title="Create Channel"
               className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
-            </button>
+            </button>}
           </div>
           <div className="space-y-0.5">
             {channels.map((ch) => {
@@ -167,13 +183,13 @@ export const Sidebar = ({
         <div>
           <div className="flex items-center justify-between px-3 mb-1.5 text-xs font-semibold tracking-wider text-slate-400 uppercase">
             <span>Direct Messages</span>
-            <button
+            {!isGuest && <button
               onClick={onOpenStartDM}
               title="Start Direct Message"
               className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
-            </button>
+            </button>}
           </div>
           <div className="space-y-0.5">
             {conversations.map((conv) => {
@@ -217,13 +233,13 @@ export const Sidebar = ({
         <div>
           <div className="flex items-center justify-between px-3 mb-1.5 text-xs font-semibold tracking-wider text-slate-400 uppercase">
             <span>Coding Projects</span>
-            <button
+            {canCreateProject && <button
               onClick={onOpenCreateProject}
               title="Create Coding Project"
               className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
-            </button>
+            </button>}
           </div>
           <div className="space-y-0.5">
             {projects.map((proj) => {

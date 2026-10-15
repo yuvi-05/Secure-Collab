@@ -14,7 +14,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import FilePreviewModal from './FilePreviewModal';
 
-export const FileManager = ({ workspaceId }) => {
+export const FileManager = ({ workspaceId, readOnly = false }) => {
   const { user } = useAuth();
   const { showToast } = useToast();
 
@@ -101,7 +101,7 @@ export const FileManager = ({ workspaceId }) => {
       </div>
 
       {/* Drag & Drop Upload Zone */}
-      <div
+      {!readOnly && <div
         onDragOver={(e) => {
           e.preventDefault();
           setIsDragOver(true);
@@ -132,7 +132,7 @@ export const FileManager = ({ workspaceId }) => {
             onChange={(e) => handleUploadFiles(e.target.files)}
           />
         </label>
-      </div>
+      </div>}
 
       {/* Files Grid */}
       {loading ? (
@@ -167,7 +167,7 @@ export const FileManager = ({ workspaceId }) => {
                     >
                       <Download className="w-4 h-4" />
                     </a>
-                    {(file.user_id === user?.id || user?.id === 1) && (
+                    {!readOnly && (file.user_id === user?.id || user?.id === 1) && (
                       <button
                         onClick={() => handleDelete(file.id)}
                         title="Delete"

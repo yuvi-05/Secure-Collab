@@ -4,12 +4,13 @@ from app.extensions import db
 from app.models import Channel, ChannelMember, WorkspaceMember, User
 from app.utils.response import success_response, error_response
 from app.middleware.auth_middleware import get_current_user, workspace_member_required, channel_access_required
+from app.models.workspace import get_effective_workspace_role
 
 channels_bp = Blueprint("channels", __name__, url_prefix="/api/workspaces/<int:workspace_id>/channels")
 
 @channels_bp.route("", methods=["POST"])
 @jwt_required()
-@workspace_member_required()
+@workspace_member_required(roles=["owner"])
 def create_channel(workspace_id):
     current_user = get_current_user()
     data = request.get_json() or {}
@@ -145,7 +146,10 @@ def remove_channel_member(workspace_id, channel_id, user_id):
     if current_user.id != user_id:
         my_membership = ChannelMember.query.filter_by(channel_id=channel_id, user_id=current_user.id).first()
         ws_membership = WorkspaceMember.query.filter_by(workspace_id=workspace_id, user_id=current_user.id).first()
-        if not my_membership or (my_membership.role != "admin" and ws_membership.role not in ["owner", "admin"]):
+        if not my_membership or (
+            my_membership.role != "admin"
+            and get_effective_workspace_role(workspace_id, current_user.id) != "owner"
+        ):
             return error_response("Permission denied to remove channel member", 403)
 
     db.session.delete(target_membership)

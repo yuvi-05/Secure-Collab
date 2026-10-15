@@ -4,6 +4,7 @@ from flask import Flask, jsonify
 from app.config import Config
 from app.extensions import db, jwt, socketio, cors, migrate
 from app.utils.response import error_response
+from app.models import User
 
 def create_app(config_class=Config):
     flask_app = Flask(__name__)
@@ -16,6 +17,15 @@ def create_app(config_class=Config):
     db.init_app(flask_app)
     migrate.init_app(flask_app, db)
     jwt.init_app(flask_app)
+
+    @jwt.token_in_blocklist_loader
+    def is_token_revoked(jwt_header, jwt_payload):
+        try:
+            user = db.session.get(User, int(jwt_payload["sub"]))
+            return not user or not user.is_active
+        except (KeyError, TypeError, ValueError):
+            return True
+
     cors.init_app(flask_app, resources={r"/*": {"origins": "*"}})
     if flask_app.config.get("REDIS_URL"):
         socketio.init_app(flask_app, message_queue=flask_app.config["REDIS_URL"])

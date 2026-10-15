@@ -10,7 +10,7 @@ class SocketClient {
   connect(userId) {
     if (this.socket && this.socket.connected) {
       if (userId) {
-        this.socket.emit('authenticate_socket', { user_id: userId });
+        this.socket.emit('authenticate_socket', { token: localStorage.getItem('token') });
       }
       return this.socket;
     }
@@ -27,7 +27,7 @@ class SocketClient {
     this.socket.on('connect', () => {
       this.isConnected = true;
       if (userId) {
-        this.socket.emit('authenticate_socket', { user_id: userId });
+        this.socket.emit('authenticate_socket', { token: localStorage.getItem('token') });
       }
       // Re-join any active rooms after reconnecting
       this.joinedRooms.forEach((room) => {

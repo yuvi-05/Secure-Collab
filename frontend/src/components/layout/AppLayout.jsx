@@ -6,7 +6,7 @@ import ChatArea from '../chat/ChatArea';
 import CodeWorkspace from '../editor/CodeWorkspace';
 import FileManager from '../files/FileManager';
 import MembersManager from '../workspace/MembersManager';
-import CreateWorkspaceModal from '../modals/CreateWorkspaceModal';
+import WorkspaceAdminPanel from '../workspace/WorkspaceAdminPanel';
 import CreateChannelModal from '../modals/CreateChannelModal';
 import CreateProjectModal from '../modals/CreateProjectModal';
 import StartDMModal from '../modals/StartDMModal';
@@ -15,6 +15,7 @@ import ProfileModal from '../modals/ProfileModal';
 import SearchModal from '../modals/SearchModal';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { ChevronRight } from 'lucide-react';
 
 export const AppLayout = () => {
   const {
@@ -25,10 +26,10 @@ export const AppLayout = () => {
     viewMode,
   } = useWorkspace();
   const { user } = useAuth();
+  const [navigationVisible, setNavigationVisible] = useState(true);
 
   // Modals state
   const [modalState, setModalState] = useState({
-    createWorkspace: false,
     createChannel: false,
     createProject: false,
     startDM: false,
@@ -41,21 +42,38 @@ export const AppLayout = () => {
   const closeModal = (name) => setModalState((prev) => ({ ...prev, [name]: false }));
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-      {/* 1. Workspace Switcher (Slack-style left rail) */}
-      <WorkspaceSwitcher
-        onOpenCreateWorkspace={() => openModal('createWorkspace')}
-        onOpenProfile={() => openModal('profile')}
-      />
-
-      {/* 2. Workspace Channels & Projects Sidebar */}
-      <Sidebar
-        onOpenCreateChannel={() => openModal('createChannel')}
-        onOpenCreateProject={() => openModal('createProject')}
-        onOpenStartDM={() => openModal('startDM')}
-        onOpenInvite={() => openModal('invite')}
-        onOpenWorkspaceSettings={() => openModal('invite')}
-      />
+    <div className="relative flex h-screen w-screen overflow-hidden bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <div
+        className={`relative h-full shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out ${
+          navigationVisible ? 'w-80' : 'w-0'
+        }`}
+      >
+        <div className="flex h-full w-80">
+          <WorkspaceSwitcher
+            onOpenProfile={() => openModal('profile')}
+            onToggleNavigation={() => setNavigationVisible(false)}
+            navigationVisible={navigationVisible}
+          />
+          <Sidebar
+            onOpenCreateChannel={() => openModal('createChannel')}
+            onOpenCreateProject={() => openModal('createProject')}
+            onOpenStartDM={() => openModal('startDM')}
+            onOpenInvite={() => openModal('invite')}
+            onOpenWorkspaceSettings={() => openModal('invite')}
+          />
+        </div>
+      </div>
+      {!navigationVisible && (
+        <button
+          type="button"
+          onClick={() => setNavigationVisible(true)}
+          aria-label="Show workspace navigation"
+          title="Show workspace navigation"
+          className="absolute left-0 top-3 z-30 flex h-9 w-7 items-center justify-center rounded-r-lg border border-slate-300 bg-white text-slate-600 shadow-md transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      )}
 
       {/* 3. Main Center Content + TopNav */}
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
@@ -70,29 +88,41 @@ export const AppLayout = () => {
             <CodeWorkspace
               workspaceId={currentWorkspace?.id}
               project={currentProject}
+              effectiveRole={
+                currentWorkspace?.my_emergency_access?.project_ids?.includes(currentProject.id)
+                  ? currentWorkspace.my_emergency_access.requested_role
+                  : currentWorkspace?.my_role
+              }
+              readOnly={['guest', 'team_member'].includes(
+                currentWorkspace?.my_emergency_access?.project_ids?.includes(currentProject.id)
+                  ? currentWorkspace.my_emergency_access.requested_role
+                  : currentWorkspace?.my_role
+              )}
             />
           ) : viewMode === 'files' ? (
-            <FileManager workspaceId={currentWorkspace?.id} />
+            <FileManager
+              workspaceId={currentWorkspace?.id}
+              readOnly={currentWorkspace?.my_role === 'guest' || currentWorkspace?.my_role === 'team_member'}
+            />
           ) : viewMode === 'members' ? (
             <MembersManager
               workspaceId={currentWorkspace?.id}
               onOpenInvite={() => openModal('invite')}
             />
+          ) : viewMode === 'admin' && currentWorkspace?.my_role === 'owner' ? (
+            <WorkspaceAdminPanel workspaceId={currentWorkspace?.id} />
           ) : (
             <ChatArea
               workspaceId={currentWorkspace?.id}
               channel={currentChannel}
               conversation={currentConversation}
+              readOnly={currentWorkspace?.my_role === 'guest'}
             />
           )}
         </main>
       </div>
 
       {/* Modals */}
-      <CreateWorkspaceModal
-        isOpen={modalState.createWorkspace}
-        onClose={() => closeModal('createWorkspace')}
-      />
       <CreateChannelModal
         isOpen={modalState.createChannel}
         onClose={() => closeModal('createChannel')}
@@ -111,6 +141,7 @@ export const AppLayout = () => {
         isOpen={modalState.invite}
         onClose={() => closeModal('invite')}
         workspaceId={currentWorkspace?.id}
+        canAssignPrivilegedRoles={currentWorkspace?.my_role === 'owner'}
       />
       <ProfileModal
         isOpen={modalState.profile}

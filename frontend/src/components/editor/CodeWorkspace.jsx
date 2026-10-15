@@ -7,6 +7,8 @@ import {
   Sparkles,
   CheckCircle2,
   Code2,
+  UserMinus,
+  UserPlus,
 } from 'lucide-react';
 import FileTree from './FileTree';
 import EditorTabs from './EditorTabs';
@@ -16,6 +18,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useToast } from '../../contexts/ToastContext';
 import socketClient from '../../socket/socketClient';
+import { workspaceService } from '../../services/workspaceService';
 
 // Helper to convert Uint8Array <-> base64
 function uint8ArrayToBase64(bytes) {
@@ -41,7 +44,7 @@ const PEER_COLORS = [
   '#6366f1', '#ec4899', '#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#14b8a6'
 ];
 
-export const CodeWorkspace = ({ workspaceId, project }) => {
+export const CodeWorkspace = ({ workspaceId, project, effectiveRole, readOnly = false }) => {
   const { user } = useAuth();
   const { theme } = useTheme();
   const { showToast } = useToast();
@@ -54,6 +57,11 @@ export const CodeWorkspace = ({ workspaceId, project }) => {
   const [activePeers, setActivePeers] = useState([]);
   const [saveStatus, setSaveStatus] = useState('saved'); // 'saved' | 'saving' | 'synced'
   const [editorMounted, setEditorMounted] = useState(false);
+  const [showProjectMembers, setShowProjectMembers] = useState(false);
+  const [projectMembers, setProjectMembers] = useState([]);
+  const [workspaceMembers, setWorkspaceMembers] = useState([]);
+  const [selectedMemberId, setSelectedMemberId] = useState('');
+  const [membersLoading, setMembersLoading] = useState(false);
 
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
@@ -196,7 +204,7 @@ export const CodeWorkspace = ({ workspaceId, project }) => {
 
     // 5. Broadcast local changes to room peers
     const handleDocUpdate = (update, origin) => {
-      if (origin === 'remote') return; // Don't echo remote updates back
+      if (origin === 'remote' || readOnly) return;
 
       setSaveStatus('saving');
       const b64 = uint8ArrayToBase64(update);
@@ -280,7 +288,7 @@ export const CodeWorkspace = ({ workspaceId, project }) => {
         file_id: activeFile.id,
       });
     };
-  }, [activeFile?.id, project.id, workspaceId, user, editorMounted]);
+  }, [activeFile?.id, project.id, workspaceId, user, editorMounted, readOnly]);
 
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -364,6 +372,52 @@ export const CodeWorkspace = ({ workspaceId, project }) => {
     showToast('Applied code changes into editor!', 'success');
   };
 
+  const loadProjectMembers = async () => {
+    setMembersLoading(true);
+    try {
+      const [projectResult, workspaceResult] = await Promise.all([
+        projectService.getProject(workspaceId, project.id),
+        workspaceService.getMembers(workspaceId),
+      ]);
+      setProjectMembers(projectResult.data.project.members || []);
+      setWorkspaceMembers(workspaceResult.data.members || []);
+    } catch (err) {
+      showToast(`Could not load project members: ${err.message}`, 'error');
+    } finally {
+      setMembersLoading(false);
+    }
+  };
+
+  const handleAddProjectMember = async (event) => {
+    event.preventDefault();
+    if (!selectedMemberId) return;
+    try {
+      await projectService.addMember(workspaceId, project.id, Number(selectedMemberId));
+      setSelectedMemberId('');
+      await loadProjectMembers();
+      showToast('Member assigned to project', 'success');
+    } catch (err) {
+      showToast(`Could not assign member: ${err.message}`, 'error');
+    }
+  };
+
+  const handleRemoveProjectMember = async (member) => {
+    try {
+      await projectService.removeMember(workspaceId, project.id, member.user_id);
+      await loadProjectMembers();
+      showToast('Member removed from project', 'success');
+    } catch (err) {
+      showToast(`Could not remove member: ${err.message}`, 'error');
+    }
+  };
+
+  const eligibleMembers = workspaceMembers.filter(
+    (member) =>
+      ['developer', 'team_member', 'guest'].includes(member.role) &&
+      !projectMembers.some((assigned) => assigned.user_id === member.user_id)
+  );
+  const canManageProjectMembers = ['owner', 'project_manager'].includes(effectiveRole);
+
   return (
     <div className="flex-1 h-full flex flex-row overflow-hidden bg-slate-950">
       {/* Left File Tree Explorer */}
@@ -374,10 +428,11 @@ export const CodeWorkspace = ({ workspaceId, project }) => {
         onCreateFile={handleCreateFile}
         onRenameFile={handleRenameFile}
         onDeleteFile={handleDeleteFile}
+        readOnly={readOnly}
       />
 
       {/* Main Center Editor Area */}
-      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
+      <div className="relative flex-1 flex flex-col h-full min-w-0 overflow-hidden">
         {/* Editor Tabs */}
         <div className="flex items-center justify-between bg-slate-950 pr-3 border-b border-slate-800">
           <div className="flex-1 min-w-0">
@@ -391,6 +446,18 @@ export const CodeWorkspace = ({ workspaceId, project }) => {
 
           {/* Active Collaborators Presence Avatars */}
           <div className="flex items-center gap-2 pl-2 shrink-0">
+            {canManageProjectMembers && (
+              <button
+                onClick={() => {
+                  const opening = !showProjectMembers;
+                  setShowProjectMembers(opening);
+                  if (opening) loadProjectMembers();
+                }}
+                className="px-2 py-1.5 rounded-lg text-xs text-slate-300 bg-slate-800 hover:bg-slate-700"
+              >
+                Project access
+              </button>
+            )}
             {activePeers.length > 0 && (
               <div className="flex items-center -space-x-1.5" title="Active collaborators editing this file">
                 {activePeers.map((peer, idx) => (
@@ -407,7 +474,7 @@ export const CodeWorkspace = ({ workspaceId, project }) => {
             )}
 
             {/* AI Assistant Toggle Button */}
-            <button
+            {!readOnly && <button
               onClick={() => setIsAiOpen(!isAiOpen)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 isAiOpen
@@ -417,9 +484,50 @@ export const CodeWorkspace = ({ workspaceId, project }) => {
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
               <span>AI Assistant</span>
-            </button>
+            </button>}
           </div>
         </div>
+
+        {showProjectMembers && canManageProjectMembers && (
+          <section className="absolute right-3 top-16 z-20 w-80 max-h-[70vh] overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-4 shadow-2xl">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-white">Project access</h2>
+              <button onClick={() => setShowProjectMembers(false)} className="text-xs text-slate-400 hover:text-white">Close</button>
+            </div>
+            {membersLoading ? <p className="text-xs text-slate-400">Loading members...</p> : (
+              <>
+                <form onSubmit={handleAddProjectMember} className="flex gap-2 mb-4">
+                  <select value={selectedMemberId} onChange={(event) => setSelectedMemberId(event.target.value)} className="min-w-0 flex-1 rounded-lg bg-slate-800 border border-slate-700 px-2 py-1.5 text-xs text-white">
+                    <option value="">Select workspace member</option>
+                    {eligibleMembers.map((member) => (
+                      <option key={member.user_id} value={member.user_id}>
+                        {member.user?.full_name || member.user?.username} · {member.role.replace('_', ' ')}
+                      </option>
+                    ))}
+                  </select>
+                  <button disabled={!selectedMemberId} className="rounded-lg bg-indigo-600 px-2 text-white disabled:opacity-50" title="Assign member">
+                    <UserPlus className="w-4 h-4" />
+                  </button>
+                </form>
+                <div className="space-y-2">
+                  {projectMembers.map((member) => (
+                    <div key={member.user_id} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="truncate text-slate-200">
+                        {member.user?.full_name || member.user?.username} <span className="text-slate-500">({member.role})</span>
+                      </span>
+                      {member.user_id !== project.created_by && (
+                        <button onClick={() => handleRemoveProjectMember(member)} className="text-rose-400 hover:text-rose-300" title="Remove project access">
+                          <UserMinus className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {projectMembers.length === 0 && <p className="text-xs text-slate-500">No project members have been assigned.</p>}
+                </div>
+              </>
+            )}
+          </section>
+        )}
 
         {/* Monaco Editor */}
         <div className="flex-1 relative min-h-0 bg-slate-950">
@@ -441,6 +549,7 @@ export const CodeWorkspace = ({ workspaceId, project }) => {
                 formatOnPaste: true,
                 automaticLayout: true,
                 padding: { top: 12 },
+                readOnly,
               }}
             />
           ) : (
@@ -469,7 +578,7 @@ export const CodeWorkspace = ({ workspaceId, project }) => {
       </div>
 
       {/* Right AI Coding Assistant Panel */}
-      {isAiOpen && (
+      {isAiOpen && !readOnly && (
         <AIPanel
           workspaceId={workspaceId}
           projectId={project.id}

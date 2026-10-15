@@ -7,6 +7,9 @@ export const authService = {
   async login(data) {
     return api.post('/auth/login', data);
   },
+  async superAdminLogin(data) {
+    return api.post('/auth/super-admin/login', data);
+  },
   async getMe() {
     return api.get('/auth/me');
   },

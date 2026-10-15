@@ -51,7 +51,7 @@ def seed():
 
             # Add members
             m_alice = WorkspaceMember(workspace_id=ws.id, user_id=alice.id, role="owner")
-            m_bob = WorkspaceMember(workspace_id=ws.id, user_id=bob.id, role="admin")
+            m_bob = WorkspaceMember(workspace_id=ws.id, user_id=bob.id, role="project_manager")
             db.session.add_all([m_alice, m_bob])
 
             # Channels

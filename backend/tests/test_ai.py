@@ -1,6 +1,6 @@
-def test_ai_chat_endpoint(client, auth_headers):
+def test_ai_chat_endpoint(client, auth_headers, create_workspace):
     # Create workspace
-    res_ws = client.post("/api/workspaces", json={"name": "AI Test Space"}, headers=auth_headers)
+    res_ws = create_workspace("AI Test Space")
     ws_id = res_ws.get_json()["data"]["workspace"]["id"]
 
     # Send chat prompt to AI endpoint
@@ -13,8 +13,8 @@ def test_ai_chat_endpoint(client, auth_headers):
     assert "message" in data
     assert len(data["message"]["content"]) > 0
 
-def test_ai_explain_code_action(client, auth_headers):
-    res_ws = client.post("/api/workspaces", json={"name": "AI Test Space 2"}, headers=auth_headers)
+def test_ai_explain_code_action(client, auth_headers, create_workspace):
+    res_ws = create_workspace("AI Test Space 2")
     ws_id = res_ws.get_json()["data"]["workspace"]["id"]
 
     res_ai = client.post(f"/api/workspaces/{ws_id}/ai/chat", json={

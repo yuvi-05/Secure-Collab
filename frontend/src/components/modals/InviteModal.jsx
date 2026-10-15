@@ -4,13 +4,16 @@ import Modal from '../common/Modal';
 import { workspaceService } from '../../services/workspaceService';
 import { useToast } from '../../contexts/ToastContext';
 
-export const InviteModal = ({ isOpen, onClose, workspaceId }) => {
+export const InviteModal = ({ isOpen, onClose, workspaceId, canAssignPrivilegedRoles = false }) => {
   const { showToast } = useToast();
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState('member');
+  const [role, setRole] = useState('team_member');
   const [loading, setLoading] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
   const [copied, setCopied] = useState(false);
+
+  const assignedRole =
+    !canAssignPrivilegedRoles && role === 'project_manager' ? 'team_member' : role;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,7 +23,7 @@ export const InviteModal = ({ isOpen, onClose, workspaceId }) => {
     try {
       const res = await workspaceService.createInvitation(workspaceId, {
         email: email.trim(),
-        role,
+        role: assignedRole,
       });
       const link = `${window.location.origin}/invite/${res.data.invitation.token}`;
       setInviteLink(link);
@@ -63,12 +66,16 @@ export const InviteModal = ({ isOpen, onClose, workspaceId }) => {
               Assign Role
             </label>
             <select
-              value={role}
+              value={assignedRole}
               onChange={(e) => setRole(e.target.value)}
               className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
             >
-              <option value="member">Member (Can edit and collaborate)</option>
-              <option value="admin">Admin (Can manage channels and invite members)</option>
+              <option value="team_member">Team Member (Chat and view assigned projects)</option>
+              <option value="developer">Developer (Collaborate and edit assigned projects)</option>
+              <option value="guest">Guest (Read-only access to shared projects)</option>
+              {canAssignPrivilegedRoles && (
+                <option value="project_manager">Project Manager (Manage projects and project members)</option>
+              )}
             </select>
           </div>
 

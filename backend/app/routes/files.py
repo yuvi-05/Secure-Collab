@@ -6,6 +6,7 @@ from app.models import FileAttachment, WorkspaceMember
 from app.services.file_service import FileService
 from app.utils.response import success_response, error_response
 from app.middleware.auth_middleware import get_current_user, workspace_member_required
+from app.models.workspace import get_effective_workspace_role
 
 files_bp = Blueprint("files", __name__, url_prefix="/api/workspaces/<int:workspace_id>/files")
 
@@ -97,7 +98,9 @@ def delete_file(workspace_id, file_id):
         return error_response("File not found", 404)
 
     ws_membership = WorkspaceMember.query.filter_by(workspace_id=workspace_id, user_id=current_user.id).first()
-    if attachment.user_id != current_user.id and ws_membership.role not in ["owner", "admin"]:
+    if attachment.user_id != current_user.id and get_effective_workspace_role(
+        workspace_id, current_user.id
+    ) != "owner":
         return error_response("Permission denied to delete this file", 403)
 
     try:

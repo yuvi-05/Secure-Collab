@@ -10,6 +10,12 @@ export const projectService = {
   async getProject(workspaceId, projectId) {
     return api.get(`/workspaces/${workspaceId}/projects/${projectId}`);
   },
+  async addMember(workspaceId, projectId, userId) {
+    return api.post(`/workspaces/${workspaceId}/projects/${projectId}/members`, { user_id: userId });
+  },
+  async removeMember(workspaceId, projectId, userId) {
+    return api.delete(`/workspaces/${workspaceId}/projects/${projectId}/members/${userId}`);
+  },
   async getFiles(workspaceId, projectId) {
     return api.get(`/workspaces/${workspaceId}/projects/${projectId}/files`);
   },

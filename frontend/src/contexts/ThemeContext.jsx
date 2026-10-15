@@ -2,24 +2,38 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const ThemeContext = createContext(null);
 
+const applyTheme = (theme) => {
+  document.documentElement.classList.toggle('dark', theme === 'dark');
+  document.documentElement.style.colorScheme = theme;
+  localStorage.setItem('theme', theme);
+};
+
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('theme') || 'dark';
+    const storedTheme = localStorage.getItem('theme');
+    const initialTheme = storedTheme === 'light' || storedTheme === 'dark' ? storedTheme : 'dark';
+    document.documentElement.classList.toggle('dark', initialTheme === 'dark');
+    document.documentElement.style.colorScheme = initialTheme;
+    return initialTheme;
   });
 
   useEffect(() => {
-    const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-    localStorage.setItem('theme', theme);
+    applyTheme(theme);
   }, [theme]);
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
+
+  useEffect(() => {
+    const handleStorage = (event) => {
+      if (event.key === 'theme' && (event.newValue === 'light' || event.newValue === 'dark')) {
+        setTheme(event.newValue);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>

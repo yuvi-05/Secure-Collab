@@ -9,6 +9,7 @@ import AppLayout from './components/layout/AppLayout';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import InviteAcceptPage from './pages/InviteAcceptPage';
+import SuperAdminPage from './pages/SuperAdminPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -30,6 +31,16 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+const HomePage = () => {
+  const { user } = useAuth();
+  return user?.is_super_admin ? <Navigate to="/super-admin" replace /> : <AppLayout />;
+};
+
+const SuperAdminRoute = () => {
+  const { user } = useAuth();
+  return user?.is_super_admin ? <SuperAdminPage /> : <Navigate to="/" replace />;
+};
+
 export function App() {
   return (
     <ThemeProvider>
@@ -43,13 +54,16 @@ export function App() {
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/register" element={<RegisterPage />} />
                   <Route path="/invite/:token" element={<InviteAcceptPage />} />
-
+                  <Route
+                    path="/super-admin"
+                    element={<ProtectedRoute><SuperAdminRoute /></ProtectedRoute>}
+                  />
                   {/* Authenticated Application */}
                   <Route
                     path="/"
                     element={
                       <ProtectedRoute>
-                        <AppLayout />
+                        <HomePage />
                       </ProtectedRoute>
                     }
                   />
